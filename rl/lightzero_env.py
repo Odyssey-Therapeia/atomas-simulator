@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, TypeAlias
+from typing import TypeAlias
 
 import gymnasium as gym
 import numpy as np
+import numpy.typing as npt
 
 from web.bridge import NucleoGame
 
@@ -12,6 +13,15 @@ from web.bridge import NucleoGame
 TOKEN_SLOT_COUNT = 60
 OBSERVATION_SIZE = 64
 MAX_ACTIONS = 65
+
+Int8Array: TypeAlias = npt.NDArray[np.int8]
+BoolArray: TypeAlias = npt.NDArray[np.bool_]
+StateValue: TypeAlias = list[int] | int | bool
+StateDict: TypeAlias = dict[str, StateValue]
+ObservationValue: TypeAlias = Int8Array | BoolArray | int
+ObservationDict: TypeAlias = dict[str, ObservationValue]
+InfoValue: TypeAlias = list[bool] | int | StateDict
+InfoDict: TypeAlias = dict[str, InfoValue]
 
 
 try:
@@ -26,30 +36,66 @@ except ImportError:
 
     @dataclass
     class BaseEnvTimestep:  # type: ignore[no-redef]
-        obs: dict[str, Any]
+        obs: ObservationDict
         reward: float
         done: bool
-        info: dict[str, Any]
+        info: InfoDict
 
 
-ObservationDict: TypeAlias = dict[str, Any]
-StepTuple: TypeAlias = tuple[ObservationDict, int, bool, dict[str, Any]]
+StepTuple: TypeAlias = tuple[ObservationDict, int, bool, InfoDict]
 StepResult: TypeAlias = BaseEnvTimestep | StepTuple
 
 
-def encode_observation(state: dict[str, Any]) -> np.ndarray:
-    """Encode engine state into the fixed-size LightZero observation tensor.
-
-    Args:
-        state: Normalized game state returned by the web bridge.
-
-    Returns:
-        A `np.ndarray` of shape `(OBSERVATION_SIZE,)` with token slots followed
-        by held-piece metadata.
-
+def assert_rl_contract(observation: Int8Array, action_mask: BoolArray) -> None:
+    """
+    Validate that an observation and action mask conform to the LightZero fixed contract.
+    
+    Parameters:
+        observation (Int8Array): 1-D observation vector with shape (OBSERVATION_SIZE,) and dtype `np.int8`.
+        action_mask (BoolArray): 1-D boolean action mask with shape (MAX_ACTIONS,) and dtype `np.bool_`.
+    
     Raises:
-        ValueError: If the token count exceeds the observation capacity or the
-            reported highest atom is not present in the piece list.
+        AssertionError: If either array has the wrong number of dimensions, shape, or dtype.
+    """
+    assert observation.ndim == 1, (
+        f"expected observation ndim=1, got {observation.ndim}"
+    )
+    assert observation.shape == (OBSERVATION_SIZE,), (
+        f"expected observation shape {(OBSERVATION_SIZE,)}, got {observation.shape}"
+    )
+    assert observation.dtype == np.int8, (
+        f"expected observation dtype {np.int8}, got {observation.dtype}"
+    )
+    assert action_mask.ndim == 1, (
+        f"expected action mask ndim=1, got {action_mask.ndim}"
+    )
+    assert action_mask.shape == (MAX_ACTIONS,), (
+        f"expected action mask shape {(MAX_ACTIONS,)}, got {action_mask.shape}"
+    )
+    assert action_mask.dtype == np.bool_, (
+        f"expected action mask dtype {np.bool_}, got {action_mask.dtype}"
+    )
+
+
+def encode_observation(state: StateDict) -> Int8Array:
+    """
+    Encode a normalized engine game state into the fixed-size LightZero observation vector.
+    
+    The returned vector has length OBSERVATION_SIZE. Layout:
+    - indices 0..TOKEN_SLOT_COUNT-1: token slots populated with the game's `pieces`, aligned so the first non-zero slot corresponds to `highest_atom` when present; unused token slots remain 0.
+    - index TOKEN_SLOT_COUNT: `current_piece`
+    - index TOKEN_SLOT_COUNT + 1: 1 if `holding_piece` is true, 0 otherwise
+    - index TOKEN_SLOT_COUNT + 2: `held_piece`
+    - index TOKEN_SLOT_COUNT + 3: 1 if `held_can_convert` is true, 0 otherwise
+    
+    Parameters:
+        state (StateDict): Normalized game state from the backend.
+    
+    Returns:
+        Int8Array: Observation vector of shape (OBSERVATION_SIZE,) with dtype np.int8.
+    
+    Raises:
+        ValueError: If len(state["pieces"]) > TOKEN_SLOT_COUNT or if `highest_atom` is absent from `pieces` when `pieces` is non-empty.
     """
     observation = np.zeros(OBSERVATION_SIZE, dtype=np.int8)
     pieces = state["pieces"]
@@ -83,7 +129,7 @@ def encode_observation(state: dict[str, Any]) -> np.ndarray:
     return observation
 
 
-def encode_action_mask(mask: list[bool]) -> np.ndarray:
+def encode_action_mask(mask: list[bool]) -> BoolArray:
     """Pad a dynamic legal-action mask to the LightZero action size.
 
     Args:
@@ -96,7 +142,10 @@ def encode_action_mask(mask: list[bool]) -> np.ndarray:
         ValueError: If the mask exceeds the padded LightZero action capacity.
     """
     if len(mask) > MAX_ACTIONS:
-        raise ValueError("action mask exceeds RL action capacity")
+        raise ValueError(
+            "action mask exceeds RL action capacity: "
+            f"len(mask)={len(mask)}, MAX_ACTIONS={MAX_ACTIONS}"
+        )
 
     padded = np.zeros(MAX_ACTIONS, dtype=bool)
     padded[: len(mask)] = np.array(mask, dtype=bool)
@@ -122,38 +171,46 @@ class NucleoLightZeroEnv(BaseEnv):
             dtype=np.int8,
         )
 
-    def reset(self) -> dict[str, Any]:
-        """Reset the environment and return the initial LightZero observation.
-
+    def reset(self) -> ObservationDict:
+        """
+        Reset the environment and produce the initial LightZero-formatted observation.
+        
         Returns:
-            A dict containing the encoded observation, padded action mask, and
-            `to_play` marker expected by LightZero.
+            A dict with keys:
+            - `observation`: the encoded observation vector for the initial state.
+            - `action_mask`: a boolean array padded to the fixed action size where `True` indicates a legal action.
+            - `to_play`: the player marker (set to -1).
         """
         state = self.game.reset()
+        observation = encode_observation(state)
+        action_mask = encode_action_mask(self.game.legal_actions())
+        assert_rl_contract(observation, action_mask)
         return {
-            "observation": encode_observation(state),
-            "action_mask": encode_action_mask(self.game.legal_actions()),
+            "observation": observation,
+            "action_mask": action_mask,
             "to_play": -1,
         }
 
     def step(self, action: int) -> StepResult:
-        """Apply one action and return the next LightZero timestep payload.
-
-        Args:
-            action: Padded action index to send to the underlying game engine.
-
+        """
+        Apply a single padded action to the underlying game and produce the next LightZero-compatible timestep.
+        
+        Parameters:
+            action (int): Padded discrete action index to forward to the game engine.
+        
         Returns:
-            A `BaseEnvTimestep` when LightZero is installed; otherwise a raw
-            `(observation, reward, done, info)` tuple for local smoke tests.
-
+            BaseEnvTimestep | tuple: If LightZero is installed, a `BaseEnvTimestep` containing the next observation dict, reward, done flag, and info; otherwise a raw `(observation, reward, done, info)` tuple where `observation` is a dict with keys `"observation"`, `"action_mask"`, and `"to_play"`.
+        
         Raises:
-            ValueError: If observation or action-mask encoding detects invalid
-                backend state.
+            ValueError: If the backend state yields an observation or action-mask that violates the LightZero encoding contract.
         """
         state, reward, done, info = self.game.step(int(action))
+        encoded_observation = encode_observation(state)
+        action_mask = encode_action_mask(self.game.legal_actions())
+        assert_rl_contract(encoded_observation, action_mask)
         observation: ObservationDict = {
-            "observation": encode_observation(state),
-            "action_mask": encode_action_mask(self.game.legal_actions()),
+            "observation": encoded_observation,
+            "action_mask": action_mask,
             "to_play": -1,
         }
         info = {**info, "state": state}
