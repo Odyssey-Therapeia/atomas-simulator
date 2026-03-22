@@ -1,7 +1,4 @@
-# atomas-simulator
-recreate atomas , to use as a simulator for muzero OT-NAU [CC-900] - EXP-1-26
-
-# Nucleo — An Atomas-Style Puzzle Game Engine in Mojo 🔥
+# Nucleo — An Atomas-Style Puzzle Game Engine in Mojo
 
 ## What This Project Is
 
@@ -190,6 +187,10 @@ The bridge auto-builds the shared library from `src/nucleo/python_module.mojo` i
 - LightZero framework (future RL): github.com/opendilab/LightZero
 - Mojo documentation: https://docs.modular.com/mojo/manual/
 - Mojo LLM-friendly docs: https://docs.modular.com/llms-mojo.txt
+
+## Legal Notice
+
+This project is an independent, original implementation. It is not affiliated with, endorsed by, or connected to Sirnic or the original Atomas game. The name "Atomas" is used solely for descriptive purposes to identify the game mechanics being simulated for machine learning research, consistent with standard practice in the RL research community (cf. OpenAI Gym Atari environments, MineRL, DeepMind StarCraft II Learning Environment). All code in this repository is original work. No proprietary assets, art, music, or code from the original game are used.
 
 ## Who We Are
 
