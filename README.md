@@ -1,7 +1,7 @@
 # atomas-simulator
 recreate atomas , to use as a simulator for muzero OT-NAU [CC-900] - EXP-1-26
 
-# Nucleo — An Atomas-Style Puzzle Game Engine in Mojo 🔥
+# Nucleo — An Atomas-Style Puzzle Game Engine in Mojo 
 
 ## What This Project Is
 
