@@ -126,12 +126,43 @@ pixi install
 # Run the game engine tests
 pixi run test
 
-# Run the headless game (CLI mode)
-pixi run mojo src/main.mojo
+# Run the headless game (CLI mode — plays random moves)
+pixi run run
 
-# Start the web interface (requires Python interop layer)
+# Build a standalone binary
+pixi run build
+
+# Format all Mojo source files
+pixi run format
+```
+
+## Play as a Human
+
+Nucleo includes a browser-based interface for playing the game interactively:
+
+```bash
 pixi run serve
 ```
+
+Then open **http://localhost:8080** in your browser.
+
+### Controls
+
+- **Click a gap** between atoms to place regular atoms and Plus tokens
+- **Click an atom** when your current piece is Minus (absorbs it) or Neutrino (copies it)
+- **Click the center piece** to convert a held Minus-absorbed atom into a Plus
+
+The sidebar shows live stats (score, moves, atom count, highest element) and a **Reset Game** button.
+
+### How it works
+
+The web interface is a thin Python layer over the Mojo engine:
+
+- `web/server.py` — FastAPI server exposing `/api/reset`, `/api/step`, `/api/state`, and `/api/legal-actions`
+- `web/bridge.py` — loads the compiled `python_module.so` shared library and normalizes engine state for JSON
+- `web/static/index.html` + `game.js` — canvas-based circular ring renderer with click-to-play interaction
+
+The bridge auto-builds the shared library from `src/nucleo/python_module.mojo` if it doesn't already exist.
 
 ## Testing
 
