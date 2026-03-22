@@ -84,6 +84,15 @@ def test_recalculate_helpers_ignore_special_tokens() raises:
     assert_equal(game.highest_atom, 4)
 
 
+def test_recalculate_highest_uses_empty_for_empty_ring() raises:
+    var game = GameState()
+    game.pieces = []
+
+    recalculate_highest(game)
+
+    assert_equal(game.highest_atom, EMPTY)
+
+
 def test_effective_value_and_ccw_distance_follow_spec() raises:
     assert_equal(effective_value(Int8(9)), 9)
     assert_equal(effective_value(PLUS), 1)

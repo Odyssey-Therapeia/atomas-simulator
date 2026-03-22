@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TypeAlias
 
 import gymnasium as gym
 import numpy as np
@@ -16,7 +16,11 @@ MAX_ACTIONS = 65
 
 try:
     from lzero.envs import BaseEnv, BaseEnvTimestep
+
+    HAS_LIGHTZERO = True
 except ImportError:
+    HAS_LIGHTZERO = False
+
     class BaseEnv:  # type: ignore[no-redef]
         pass
 
@@ -26,6 +30,11 @@ except ImportError:
         reward: float
         done: bool
         info: dict[str, Any]
+
+
+ObservationDict: TypeAlias = dict[str, Any]
+StepTuple: TypeAlias = tuple[ObservationDict, int, bool, dict[str, Any]]
+StepResult: TypeAlias = BaseEnvTimestep | StepTuple
 
 
 def encode_observation(state: dict[str, Any]) -> np.ndarray:
@@ -58,7 +67,7 @@ def encode_observation(state: dict[str, Any]) -> np.ndarray:
             )
         start_index = pieces.index(highest_atom)
 
-    for offset, token in enumerate(pieces):
+    for offset, _token in enumerate(pieces):
         observation[offset] = np.int8(
             pieces[(start_index + offset) % len(pieces)]
         )
@@ -127,30 +136,29 @@ class NucleoLightZeroEnv(BaseEnv):
             "to_play": -1,
         }
 
-    def step(self, action: int) -> tuple[dict[str, Any], int, bool, dict[str, Any]] | BaseEnvTimestep:
+    def step(self, action: int) -> StepResult:
         """Apply one action and return the next LightZero timestep payload.
 
         Args:
             action: Padded action index to send to the underlying game engine.
 
         Returns:
-            Either a tuple of `(observation, reward, done, info)` or a
-            `BaseEnvTimestep`, depending on the LightZero base class available
-            at runtime.
+            A `BaseEnvTimestep` when LightZero is installed; otherwise a raw
+            `(observation, reward, done, info)` tuple for local smoke tests.
 
         Raises:
             ValueError: If observation or action-mask encoding detects invalid
                 backend state.
         """
         state, reward, done, info = self.game.step(int(action))
-        observation = {
+        observation: ObservationDict = {
             "observation": encode_observation(state),
             "action_mask": encode_action_mask(self.game.legal_actions()),
             "to_play": -1,
         }
         info = {**info, "state": state}
 
-        if BaseEnvTimestep.__module__ != __name__:
+        if HAS_LIGHTZERO:
             return BaseEnvTimestep(observation, reward, done, info)
 
         return observation, reward, done, info

@@ -57,6 +57,11 @@ def right_neighbor(state: GameState, index: Int) -> Int:
 
 
 def recalculate_highest(mut state: GameState):
+    # An empty ring has no highest atom, so keep the sentinel as EMPTY.
+    if len(state.pieces) == 0:
+        state.highest_atom = EMPTY
+        return
+
     var highest = HYDROGEN
 
     for token in state.pieces:

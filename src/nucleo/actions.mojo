@@ -87,6 +87,11 @@ def finish_placement_turn(mut state: GameState, action: Int) -> Int:
 
 
 def apply_action(mut state: GameState, action: Int) -> Int:
+    """Apply a legal action and return reward.
+
+    Invalid or out-of-range actions return `0` so callers that already operate
+    on a legal-action mask can safely treat them as a no-op.
+    """
     var mask = legal_actions(state)
 
     if action < 0 or action >= len(mask) or not mask[action]:

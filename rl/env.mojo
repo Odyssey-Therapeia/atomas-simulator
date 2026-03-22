@@ -50,7 +50,9 @@ struct NucleoEnv(Movable, Writable):
         return padded
 
     def observation_space(self) -> Tuple[Int, Int, Int]:
+        """Return `(size, low, high)` for the padded RL observation tensor."""
         return (OBSERVATION_SIZE, -4, 127)
 
     def action_space(self) -> Int:
+        """Return the number of discrete RL actions in the padded action space."""
         return MAX_ACTIONS

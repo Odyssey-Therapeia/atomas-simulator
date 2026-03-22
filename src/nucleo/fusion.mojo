@@ -100,11 +100,9 @@ def chain_react(mut state: GameState, center_idx: Int, depth: Int) -> Tuple[Int,
     var high_idx = left_idx
     var low_idx = right_idx
 
-    if right_idx > high_idx:
+    if left_idx < right_idx:
         high_idx = right_idx
         low_idx = left_idx
-    elif right_idx < low_idx:
-        low_idx = right_idx
 
     _ = remove_at(state, high_idx)
     _ = remove_at(state, low_idx)
