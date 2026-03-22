@@ -2,6 +2,7 @@ from std.random import random_float64, random_si64, seed
 
 
 comptime MAX_ATOMS: Int = 18
+comptime MAX_RING_CAPACITY: Int = 36
 
 comptime EMPTY: Int8 = 0
 comptime HYDROGEN: Int8 = 1
@@ -19,8 +20,9 @@ comptime BLACK_PLUS_SCORE_GATE: Int = 750
 comptime NEUTRINO_SCORE_GATE: Int = 1500
 
 
-struct GameState(Movable, Writable):
-    var pieces: List[Int8]
+struct GameState(ImplicitlyCopyable, Writable):
+    var pieces: InlineArray[Int8, MAX_RING_CAPACITY]
+    var token_count: Int
     var atom_count: Int
     var current_piece: Int8
     var score: Int
@@ -35,7 +37,8 @@ struct GameState(Movable, Writable):
     var rng_seed: Int
 
     def __init__(out self, game_seed: Int = -1):
-        self.pieces = []
+        self.pieces = InlineArray[Int8, MAX_RING_CAPACITY](fill=0)
+        self.token_count = 0
         self.atom_count = 0
         self.current_piece = HYDROGEN
         self.score = 0
@@ -51,7 +54,8 @@ struct GameState(Movable, Writable):
         self.reset()
 
     def reset(mut self):
-        self.pieces = []
+        self.pieces = InlineArray[Int8, MAX_RING_CAPACITY](fill=0)
+        self.token_count = 0
         self.atom_count = 0
         self.current_piece = EMPTY
         self.score = 0
@@ -86,21 +90,29 @@ struct GameState(Movable, Writable):
         return (minimum_regular, maximum_regular)
 
     def pick_straggler_spawn(self, minimum_regular: Int) -> Int8:
-        var stragglers: List[Int8] = []
-
-        for token in self.pieces:
+        var straggler_count = 0
+        for index in range(self.token_count):
+            var token = self.pieces[index]
             if token > 0 and Int(token) < minimum_regular:
-                stragglers.append(token)
+                straggler_count += 1
 
-        if len(stragglers) == 0 or self.atom_count <= 0:
+        if straggler_count == 0 or self.atom_count <= 0:
             return EMPTY
 
         var pity_threshold = 1.0 / Float64(self.atom_count)
         if random_float64() >= pity_threshold:
             return EMPTY
 
-        var straggler_idx = Int(random_si64(0, Int64(len(stragglers) - 1)))
-        return stragglers[straggler_idx]
+        var target = Int(random_si64(0, Int64(straggler_count - 1)))
+        var seen = 0
+        for index in range(self.token_count):
+            var token = self.pieces[index]
+            if token > 0 and Int(token) < minimum_regular:
+                if seen == target:
+                    return token
+                seen += 1
+
+        return EMPTY
 
     def update_spawn_counters(mut self, spawned_piece: Int8):
         if spawned_piece == PLUS:
@@ -157,22 +169,32 @@ struct GameState(Movable, Writable):
         self.update_spawn_counters(self.current_piece)
 
     def spawn_initial_board(mut self):
-        self.pieces = []
+        self.pieces = InlineArray[Int8, MAX_RING_CAPACITY](fill=0)
+        self.token_count = 0
 
         for _ in range(6):
-            self.pieces.append(Int8(random_si64(1, 3)))
+            self.pieces[self.token_count] = Int8(random_si64(1, 3))
+            self.token_count += 1
 
-        self.atom_count = len(self.pieces)
+        self.atom_count = self.token_count
         self.highest_atom = HYDROGEN
 
-        for token in self.pieces:
+        for index in range(self.token_count):
+            var token = self.pieces[index]
             if token > self.highest_atom:
                 self.highest_atom = token
 
     def write_to(self, mut writer: Some[Writer]):
+        writer.write("GameState(pieces=[")
+        for index in range(self.token_count):
+            if index > 0:
+                writer.write(", ")
+            writer.write(self.pieces[index])
+
         writer.write(
-            "GameState(pieces=",
-            self.pieces,
+            "]",
+            ", token_count=",
+            self.token_count,
             ", atom_count=",
             self.atom_count,
             ", current_piece=",

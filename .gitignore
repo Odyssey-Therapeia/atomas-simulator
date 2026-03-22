@@ -8,4 +8,4 @@ __pycache__/
 /nucleo
 nucleo_engine.so
 python_module.so
-.cursor/hooks/state/continual-learning.json
+.cursor/hooks/state/

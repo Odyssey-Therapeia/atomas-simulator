@@ -1,20 +1,22 @@
 """Shared engine constants matching ``src/nucleo/game_state.mojo``."""
 
-MAX_ATOMS = 18
+from typing import Final
 
-EMPTY = 0
-HYDROGEN = 1
-PLUS = -1
-MINUS = -2
-BLACK_PLUS = -3
-NEUTRINO = -4
+MAX_ATOMS: Final[int] = 18
 
-PLUS_SPAWN_RATE = 0.17
-MINUS_SPAWN_RATE = 0.05
-BLACK_PLUS_SPAWN_RATE = 0.0125
-NEUTRINO_SPAWN_RATE = 0.0167
+EMPTY: Final[int] = 0
+HYDROGEN: Final[int] = 1
+PLUS: Final[int] = -1
+MINUS: Final[int] = -2
+BLACK_PLUS: Final[int] = -3
+NEUTRINO: Final[int] = -4
 
-BLACK_PLUS_SCORE_GATE = 750
-NEUTRINO_SCORE_GATE = 1500
+PLUS_SPAWN_RATE: Final[float] = 0.17
+MINUS_SPAWN_RATE: Final[float] = 0.05
+BLACK_PLUS_SPAWN_RATE: Final[float] = 0.0125
+NEUTRINO_SPAWN_RATE: Final[float] = 0.0167
 
-INT8_ATOM_MAX = 127
+BLACK_PLUS_SCORE_GATE: Final[int] = 750
+NEUTRINO_SCORE_GATE: Final[int] = 1500
+
+INT8_ATOM_MAX: Final[int] = 127

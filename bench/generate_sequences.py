@@ -18,7 +18,12 @@ DEFAULT_OUTPUT = Path("bench/sequences/game_100_seed42.json")
 
 def parse_arg_or_default(index: int, default: int) -> int:
     if len(sys.argv) > index:
-        return int(sys.argv[index])
+        try:
+            return int(sys.argv[index])
+        except ValueError as error:
+            raise ValueError(
+                f"Invalid integer for CLI arg at index {index}: '{sys.argv[index]}'"
+            ) from error
     return default
 
 
@@ -29,6 +34,7 @@ def generate_sequence(
     int_min: int,
     int_max: int,
 ) -> dict[str, object]:
+    """Generate reproducible random floats/ints and return a metadata-rich payload dict."""
     rng = random.Random(seed_value)
     return {
         "seed": seed_value,

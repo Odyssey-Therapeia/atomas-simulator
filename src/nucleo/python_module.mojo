@@ -2,31 +2,33 @@ from std.os import abort
 from std.python import Python, PythonObject
 from std.python.bindings import PythonModuleBuilder
 
-from nucleo.actions import legal_actions, step
+from nucleo.actions import MAX_ACTION_SLOTS, legal_actions, step
 from nucleo.game_state import GameState
 
 
-def pieces_to_python(pieces: List[Int8]) raises -> PythonObject:
+def pieces_to_python(state: GameState) raises -> PythonObject:
     var py_pieces = Python.list()
 
-    for token in pieces:
-        py_pieces.append(Int(token))
+    for index in range(state.token_count):
+        py_pieces.append(Int(state.pieces[index]))
 
     return py_pieces
 
 
-def mask_to_python(mask: List[Bool]) raises -> PythonObject:
+def mask_to_python(
+    mask: InlineArray[Bool, MAX_ACTION_SLOTS], valid_count: Int
+) raises -> PythonObject:
     var py_mask = Python.list()
 
-    for item in mask:
-        py_mask.append(item)
+    for index in range(valid_count):
+        py_mask.append(mask[index])
 
     return py_mask
 
 
 def state_to_python(state: GameState) raises -> PythonObject:
     var payload = Python.dict()
-    payload["pieces"] = pieces_to_python(state.pieces)
+    payload["pieces"] = pieces_to_python(state)
     payload["atom_count"] = state.atom_count
     payload["current_piece"] = Int(state.current_piece)
     payload["score"] = state.score
@@ -80,7 +82,8 @@ struct PythonGame(Movable, Writable):
     def legal_actions_py(
         self_ptr: UnsafePointer[Self, MutAnyOrigin]
     ) raises -> PythonObject:
-        return mask_to_python(legal_actions(self_ptr[].state))
+        var mask_result = legal_actions(self_ptr[].state)
+        return mask_to_python(mask_result[0], mask_result[1])
 
     @staticmethod
     def get_state_py(

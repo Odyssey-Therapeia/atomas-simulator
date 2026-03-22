@@ -1,13 +1,15 @@
-from nucleo.actions import legal_actions, step
+from nucleo.actions import MAX_ACTION_SLOTS, legal_actions, step
 from nucleo.game_state import EMPTY, GameState, MAX_ATOMS
 from std.random import random_si64
 from std.testing import TestSuite, assert_equal, assert_true
 
 
-def choose_random_legal_action(mask: List[Bool]) raises -> Int:
+def choose_random_legal_action(
+    mask: InlineArray[Bool, MAX_ACTION_SLOTS], valid_count: Int
+) raises -> Int:
     var legal_indices: List[Int] = []
 
-    for index in range(len(mask)):
+    for index in range(valid_count):
         if mask[index]:
             legal_indices.append(index)
 
@@ -16,20 +18,22 @@ def choose_random_legal_action(mask: List[Bool]) raises -> Int:
     return legal_indices[choice]
 
 
-def positive_count(pieces: List[Int8]) -> Int:
+def positive_count(state: GameState) -> Int:
     var count = 0
 
-    for token in pieces:
+    for index in range(state.token_count):
+        var token = state.pieces[index]
         if token > 0:
             count += 1
 
     return count
 
 
-def max_positive(pieces: List[Int8]) -> Int8:
-    var highest = Int8(1)
+def max_positive(state: GameState) -> Int8:
+    var highest = EMPTY
 
-    for token in pieces:
+    for index in range(state.token_count):
+        var token = state.pieces[index]
         if token > highest:
             highest = token
 
@@ -42,12 +46,14 @@ def test_seeded_games_run_to_completion_without_breaking_invariants() raises:
         var turn_limit = 2000
 
         while not game.is_terminal and game.move_count < turn_limit:
-            var mask = legal_actions(game)
-            var action = choose_random_legal_action(mask)
+            var mask_result = legal_actions(game)
+            var action = choose_random_legal_action(
+                mask_result[0], mask_result[1]
+            )
             _ = step(game, action)
 
-            assert_equal(game.atom_count, positive_count(game.pieces))
-            assert_equal(game.highest_atom, max_positive(game.pieces))
+            assert_equal(game.atom_count, positive_count(game))
+            assert_equal(game.highest_atom, max_positive(game))
             assert_true(game.current_piece != EMPTY or game.is_terminal)
             assert_true(game.atom_count <= MAX_ATOMS or game.is_terminal)
 

@@ -1,8 +1,8 @@
 from invariants import assert_game_invariants
 
-from nucleo.actions import legal_actions, step
+from nucleo.actions import MAX_ACTION_SLOTS, legal_actions, step
 from nucleo.game_state import GameState
-from std.math import sqrt
+from stats import max_value, mean, median, min_value, standard_deviation
 from std.random import random_si64
 from std.sys import argv
 from std.time import perf_counter_ns
@@ -15,10 +15,12 @@ comptime DEFAULT_SEED: Int = 42
 comptime MAX_STEPS_PER_GAME: Int = 5_000
 
 
-def choose_random_legal_action(mask: List[Bool]) raises -> Int:
+def choose_random_legal_action(
+    mask: InlineArray[Bool, MAX_ACTION_SLOTS], valid_count: Int
+) raises -> Int:
     var legal_indices: List[Int] = []
 
-    for index in range(len(mask)):
+    for index in range(valid_count):
         if mask[index]:
             legal_indices.append(index)
 
@@ -38,76 +40,6 @@ def parse_arg_or_default(
     return default
 
 
-def mean(values: List[Float64]) -> Float64:
-    if len(values) == 0:
-        return 0.0
-
-    var total = 0.0
-    for value in values:
-        total += value
-
-    return total / Float64(len(values))
-
-
-def min_value(values: List[Float64]) -> Float64:
-    var current_min = values[0]
-    for value in values:
-        if value < current_min:
-            current_min = value
-
-    return current_min
-
-
-def max_value(values: List[Float64]) -> Float64:
-    var current_max = values[0]
-    for value in values:
-        if value > current_max:
-            current_max = value
-
-    return current_max
-
-
-def sorted_copy(values: List[Float64]) -> List[Float64]:
-    var copied = values.copy()
-
-    for index in range(1, len(copied)):
-        var current_value = copied[index]
-        var position = index
-
-        while position > 0 and copied[position - 1] > current_value:
-            copied[position] = copied[position - 1]
-            position -= 1
-
-        copied[position] = current_value
-
-    return copied^
-
-
-def median(values: List[Float64]) -> Float64:
-    var ordered = sorted_copy(values)
-    var middle = len(ordered) // 2
-
-    if len(ordered) % 2 == 1:
-        return ordered[middle]
-
-    return (ordered[middle - 1] + ordered[middle]) / 2.0
-
-
-def standard_deviation(values: List[Float64]) -> Float64:
-    if len(values) == 0:
-        return 0.0
-
-    var average = mean(values)
-    var variance = 0.0
-
-    for value in values:
-        var delta = value - average
-        variance += delta * delta
-
-    variance /= Float64(len(values))
-    return sqrt(variance)
-
-
 def play_one_game(seed_value: Int) raises -> Tuple[Int, Int]:
     var game = GameState(game_seed=seed_value)
     var step_count = 0
@@ -116,8 +48,10 @@ def play_one_game(seed_value: Int) raises -> Tuple[Int, Int]:
     assert_game_invariants(game, previous_score)
 
     while not game.is_terminal and step_count < MAX_STEPS_PER_GAME:
-        var mask = legal_actions(game)
-        var action = choose_random_legal_action(mask)
+        var mask_result = legal_actions(game)
+        var action = choose_random_legal_action(
+            mask_result[0], mask_result[1]
+        )
         _ = step(game, action)
         assert_game_invariants(game, previous_score)
         previous_score = game.score

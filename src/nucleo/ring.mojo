@@ -3,21 +3,36 @@ from nucleo.game_state import (
     EMPTY,
     GameState,
     HYDROGEN,
+    MAX_RING_CAPACITY,
     PLUS,
 )
 
 
-def insert_at(mut state: GameState, position: Int, token: Int8):
-    var new_pieces: List[Int8] = []
+def insert_at(mut state: GameState, position: Int, token: Int8) raises:
+    debug_assert(
+        position >= 0 and position <= state.token_count,
+        "insert_at: position out of range (position=",
+        position,
+        ", token_count=",
+        state.token_count,
+        ")",
+    )
+    if position < 0 or position > state.token_count:
+        raise Error("insert_at: position out of range")
 
-    for index in range(len(state.pieces) + 1):
-        if index == position:
-            new_pieces.append(token)
+    debug_assert(
+        state.token_count < MAX_RING_CAPACITY,
+        "insert_at: ring overflow at capacity ",
+        MAX_RING_CAPACITY,
+    )
+    if state.token_count >= MAX_RING_CAPACITY:
+        raise Error("insert_at: ring overflow at max capacity")
 
-        if index < len(state.pieces):
-            new_pieces.append(state.pieces[index])
+    for index in range(state.token_count, position, -1):
+        state.pieces[index] = state.pieces[index - 1]
 
-    state.pieces = new_pieces^
+    state.pieces[position] = token
+    state.token_count += 1
 
     if token > 0:
         state.atom_count += 1
@@ -25,15 +40,25 @@ def insert_at(mut state: GameState, position: Int, token: Int8):
             state.highest_atom = token
 
 
-def remove_at(mut state: GameState, position: Int) -> Int8:
+def remove_at(mut state: GameState, position: Int) raises -> Int8:
+    debug_assert(
+        position >= 0 and position < state.token_count,
+        "remove_at: position out of range (position=",
+        position,
+        ", token_count=",
+        state.token_count,
+        ")",
+    )
+    if position < 0 or position >= state.token_count:
+        raise Error("remove_at: position out of range")
+
     var removed = state.pieces[position]
-    var new_pieces: List[Int8] = []
 
-    for index in range(len(state.pieces)):
-        if index != position:
-            new_pieces.append(state.pieces[index])
+    for index in range(position, state.token_count - 1):
+        state.pieces[index] = state.pieces[index + 1]
 
-    state.pieces = new_pieces^
+    state.token_count -= 1
+    state.pieces[state.token_count] = EMPTY
 
     if removed > 0:
         state.atom_count -= 1
@@ -43,29 +68,30 @@ def remove_at(mut state: GameState, position: Int) -> Int8:
 
 
 def left_neighbor(state: GameState, index: Int) -> Int:
-    if len(state.pieces) == 0:
+    if state.token_count == 0:
         return index
 
-    return (index - 1 + len(state.pieces)) % len(state.pieces)
+    return (index - 1 + state.token_count) % state.token_count
 
 
 def right_neighbor(state: GameState, index: Int) -> Int:
-    if len(state.pieces) == 0:
+    if state.token_count == 0:
         return index
 
-    return (index + 1) % len(state.pieces)
+    return (index + 1) % state.token_count
 
 
 def recalculate_highest(mut state: GameState):
     # An empty ring has no highest atom, so keep the sentinel as EMPTY.
-    if len(state.pieces) == 0:
+    if state.token_count == 0:
         state.highest_atom = EMPTY
         return
 
     # When only specials remain on the ring there is no positive atom to track.
     var highest = EMPTY
 
-    for token in state.pieces:
+    for index in range(state.token_count):
+        var token = state.pieces[index]
         if token > highest:
             highest = token
 
@@ -75,7 +101,8 @@ def recalculate_highest(mut state: GameState):
 def recalculate_atom_count(mut state: GameState):
     var count = 0
 
-    for token in state.pieces:
+    for index in range(state.token_count):
+        var token = state.pieces[index]
         if token > 0:
             count += 1
 

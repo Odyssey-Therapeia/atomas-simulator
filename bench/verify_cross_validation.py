@@ -75,7 +75,7 @@ def parse_arg_or_default(index: int, default: int) -> int:
 
 def normalize_python_state(state: PythonGameState) -> dict[str, Any]:
     return {
-        "pieces": list(state.pieces),
+        "pieces": [int(token) for token in state.pieces[: state.token_count]],
         "atom_count": int(state.atom_count),
         "current_piece": int(state.current_piece),
         "score": int(state.score),
@@ -92,8 +92,10 @@ def normalize_python_state(state: PythonGameState) -> dict[str, Any]:
 
 
 def normalize_mojo_state(payload: dict[str, Any]) -> dict[str, Any]:
+    pieces_payload = payload["pieces"]
+    token_count = int(payload.get("token_count", len(pieces_payload)))
     return {
-        "pieces": [int(token) for token in payload["pieces"]],
+        "pieces": [int(token) for token in pieces_payload[:token_count]],
         "atom_count": int(payload["atom_count"]),
         "current_piece": int(payload["current_piece"]),
         "score": int(payload["score"]),
@@ -138,12 +140,17 @@ def choose_random_action_from_state_rng(state: PythonGameState, mask: list[bool]
     legal_indices = [index for index, is_legal in enumerate(mask) if is_legal]
     if not legal_indices:
         raise ValueError("choose_random_action_from_state_rng: no legal actions available")
-    return legal_indices[state._rng.randint(0, len(legal_indices) - 1)]
+    return legal_indices[state.randint(0, len(legal_indices) - 1)]
 
 
 def record_python_sequence_trajectory(sequence_payload: dict[str, Any]) -> list[dict[str, Any]]:
     game = PythonGameState(rng_seed=int(sequence_payload["seed"]))
     game._rng = SequenceRNG.from_payload(sequence_payload)
+    if int(sequence_payload["seed"]) != game.rng_seed:
+        raise RuntimeError(
+            "record_python_sequence_trajectory: sequence seed does not match "
+            f"game seed ({sequence_payload['seed']} != {game.rng_seed})"
+        )
     game.reset()
 
     trajectory = [normalize_python_state(game)]
@@ -246,15 +253,16 @@ def main() -> None:
         "Note: exact cross-engine seeded parity is expected to diverge until the Mojo engine "
         "supports injected random streams."
     )
-    print("{")
-    print(f'  "sequence_file": "{sequence_path}",')
-    print(f'  "python_sequence_replay_match": {str(sequence_replay_match).lower()},')
-    print(f'  "seeded_corpus_size": {game_count},')
-    print(f'  "exact_seeded_parity_matches": {exact_seeded_parity_count},')
-    print('  "exact_seeded_parity_supported": false,')
-    print('  "note": "Mojo bridge currently uses internal RNG; pre-generated stream injection is only available in the Python baseline.",')
-    print(f'  "mismatch_examples": {json.dumps(mismatch_examples)}')
-    print("}")
+    report = {
+        "sequence_file": str(sequence_path),
+        "python_sequence_replay_match": sequence_replay_match,
+        "seeded_corpus_size": game_count,
+        "exact_seeded_parity_matches": exact_seeded_parity_count,
+        "exact_seeded_parity_supported": False,
+        "note": "Mojo bridge currently uses internal RNG; pre-generated stream injection is only available in the Python baseline.",
+        "mismatch_examples": mismatch_examples,
+    }
+    print(json.dumps(report, indent=2))
 
 
 if __name__ == "__main__":

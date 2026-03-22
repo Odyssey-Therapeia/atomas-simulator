@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import statistics
 import sys
 import time
@@ -24,7 +25,12 @@ MAX_STEPS_PER_GAME = 5_000
 
 def parse_arg_or_default(index: int, default: int) -> int:
     if len(sys.argv) > index:
-        return int(sys.argv[index])
+        try:
+            return int(sys.argv[index])
+        except ValueError as error:
+            raise ValueError(
+                f"Invalid integer for CLI arg at index {index}: '{sys.argv[index]}'"
+            ) from error
     return default
 
 
@@ -32,7 +38,7 @@ def choose_random_legal_action(state: GameState, mask: list[bool]) -> int:
     legal_indices = [index for index, is_legal in enumerate(mask) if is_legal]
     if not legal_indices:
         raise ValueError("choose_random_legal_action: no legal actions available")
-    return legal_indices[state._rng.randint(0, len(legal_indices) - 1)]
+    return legal_indices[state.randint(0, len(legal_indices) - 1)]
 
 
 def play_one_game(seed_value: int) -> tuple[int, int]:
@@ -63,20 +69,6 @@ def run_pass(seed_start: int, game_count: int) -> tuple[int, int, int]:
 
     elapsed_ns = time.perf_counter_ns() - start_ns
     return total_steps, total_score, elapsed_ns
-
-
-def mean(values: list[float]) -> float:
-    return statistics.fmean(values) if values else 0.0
-
-
-def median(values: list[float]) -> float:
-    return statistics.median(values) if values else 0.0
-
-
-def stddev(values: list[float]) -> float:
-    if not values:
-        return 0.0
-    return statistics.pstdev(values)
 
 
 def main() -> None:
@@ -118,8 +110,8 @@ def main() -> None:
         total_steps_across_runs += total_steps
         total_score_across_runs += total_score
 
-    steps_mean = mean(steps_per_second_values)
-    steps_stddev = stddev(steps_per_second_values)
+    steps_mean = statistics.fmean(steps_per_second_values)
+    steps_stddev = statistics.pstdev(steps_per_second_values)
     coefficient_of_variation = (steps_stddev / steps_mean) * 100.0 if steps_mean > 0 else 0.0
 
     print("=== Nucleo Benchmark (Python Throughput) ===")
@@ -130,37 +122,38 @@ def main() -> None:
     print(f"Total steps across runs: {total_steps_across_runs}")
     print(f"Total score across runs: {total_score_across_runs}")
     print(f"Steps/sec mean: {steps_mean}")
-    print(f"Steps/sec median: {median(steps_per_second_values)}")
+    print(f"Steps/sec median: {statistics.median(steps_per_second_values)}")
     print(f"Steps/sec min: {min(steps_per_second_values)}")
     print(f"Steps/sec max: {max(steps_per_second_values)}")
     print(f"Steps/sec stddev: {steps_stddev}")
     print(f"CV (%): {coefficient_of_variation}")
-    print(f"Elapsed ms mean: {mean(elapsed_ms_values)}")
-    print(f"Avg steps/game: {mean(avg_steps_per_game_values)}")
-    print(f"Avg game duration (ms): {mean(avg_game_duration_ms_values)}")
+    print(f"Elapsed ms mean: {statistics.fmean(elapsed_ms_values)}")
+    print(f"Avg steps/game: {statistics.fmean(avg_steps_per_game_values)}")
+    print(f"Avg game duration (ms): {statistics.fmean(avg_game_duration_ms_values)}")
 
     if coefficient_of_variation > 10.0:
         print("WARNING: benchmark coefficient of variation exceeds 10%")
 
-    print("{")
-    print('  "benchmark": "throughput",')
-    print('  "engine": "python",')
-    print(f'  "measurement_games_per_run": {measurement_games},')
-    print(f'  "warmup_games_per_run": {warmup_games},')
-    print(f'  "repetitions": {repetitions},')
-    print(f'  "seed_start": {seed_start},')
-    print(f'  "total_steps_across_runs": {total_steps_across_runs},')
-    print(f'  "total_score_across_runs": {total_score_across_runs},')
-    print(f'  "steps_per_second_mean": {steps_mean},')
-    print(f'  "steps_per_second_median": {median(steps_per_second_values)},')
-    print(f'  "steps_per_second_min": {min(steps_per_second_values)},')
-    print(f'  "steps_per_second_max": {max(steps_per_second_values)},')
-    print(f'  "steps_per_second_stddev": {steps_stddev},')
-    print(f'  "coefficient_of_variation_percent": {coefficient_of_variation},')
-    print(f'  "elapsed_ms_mean": {mean(elapsed_ms_values)},')
-    print(f'  "avg_steps_per_game": {mean(avg_steps_per_game_values)},')
-    print(f'  "avg_game_duration_ms": {mean(avg_game_duration_ms_values)}')
-    print("}")
+    report = {
+        "benchmark": "throughput",
+        "engine": "python",
+        "measurement_games_per_run": measurement_games,
+        "warmup_games_per_run": warmup_games,
+        "repetitions": repetitions,
+        "seed_start": seed_start,
+        "total_steps_across_runs": total_steps_across_runs,
+        "total_score_across_runs": total_score_across_runs,
+        "steps_per_second_mean": steps_mean,
+        "steps_per_second_median": float(statistics.median(steps_per_second_values)),
+        "steps_per_second_min": min(steps_per_second_values),
+        "steps_per_second_max": max(steps_per_second_values),
+        "steps_per_second_stddev": steps_stddev,
+        "coefficient_of_variation_percent": coefficient_of_variation,
+        "elapsed_ms_mean": statistics.fmean(elapsed_ms_values),
+        "avg_steps_per_game": statistics.fmean(avg_steps_per_game_values),
+        "avg_game_duration_ms": statistics.fmean(avg_game_duration_ms_values),
+    }
+    print(json.dumps(report, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":

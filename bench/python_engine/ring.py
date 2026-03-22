@@ -9,6 +9,7 @@ from .game_state import GameState
 def insert_at(state: GameState, position: int, token: int) -> None:
     """Insert ``token`` at ``position`` (0..len); updates atom stats when positive."""
     state.pieces.insert(position, token)
+    state.token_count += 1
     if token > 0:
         state.atom_count += 1
         if token > state.highest_atom:
@@ -18,32 +19,35 @@ def insert_at(state: GameState, position: int, token: int) -> None:
 def remove_at(state: GameState, position: int) -> int:
     """Remove and return the token at ``position``; may recalculate highest atom."""
     removed = state.pieces.pop(position)
+    state.token_count -= 1
     if removed > 0:
         state.atom_count -= 1
-        recalculate_highest(state)
+        if removed == state.highest_atom:
+            recalculate_highest(state)
     return removed
 
 
 def left_neighbor(state: GameState, index: int) -> int:
-    if len(state.pieces) == 0:
+    if state.token_count == 0:
         return index
-    return (index - 1 + len(state.pieces)) % len(state.pieces)
+    return (index - 1 + state.token_count) % state.token_count
 
 
 def right_neighbor(state: GameState, index: int) -> int:
-    if len(state.pieces) == 0:
+    if state.token_count == 0:
         return index
-    return (index + 1) % len(state.pieces)
+    return (index + 1) % state.token_count
 
 
 def recalculate_highest(state: GameState) -> None:
     """Highest positive atom on the ring, or ``EMPTY`` if none (empty ring or specials-only)."""
-    if len(state.pieces) == 0:
+    if state.token_count == 0:
         state.highest_atom = EMPTY
         return
 
     highest = EMPTY
-    for token in state.pieces:
+    for index in range(state.token_count):
+        token = state.pieces[index]
         if token > highest:
             highest = token
     state.highest_atom = highest
@@ -52,7 +56,8 @@ def recalculate_highest(state: GameState) -> None:
 def recalculate_atom_count(state: GameState) -> None:
     """Recompute ``atom_count`` from positive tokens."""
     count = 0
-    for token in state.pieces:
+    for index in range(state.token_count):
+        token = state.pieces[index]
         if token > 0:
             count += 1
     state.atom_count = count

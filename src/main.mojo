@@ -1,13 +1,15 @@
 from std.random import random_si64
 
-from nucleo.actions import legal_actions, step
+from nucleo.actions import MAX_ACTION_SLOTS, legal_actions, step
 from nucleo.game_state import GameState
 
 
-def choose_random_legal_action(mask: List[Bool]) raises -> Int:
+def choose_random_legal_action(
+    mask: InlineArray[Bool, MAX_ACTION_SLOTS], valid_count: Int
+) raises -> Int:
     var legal_indices: List[Int] = []
 
-    for index in range(len(mask)):
+    for index in range(valid_count):
         if mask[index]:
             legal_indices.append(index)
 
@@ -26,8 +28,8 @@ def main() raises:
     print(game)
 
     while not game.is_terminal:
-        var mask = legal_actions(game)
-        var action = choose_random_legal_action(mask)
+        var mask_result = legal_actions(game)
+        var action = choose_random_legal_action(mask_result[0], mask_result[1])
         var result = step(game, action)
 
         print(

@@ -44,7 +44,7 @@ def middle3(a: Int, b: Int, c: Int) -> Int:
 
 
 def plus_can_react(state: GameState, plus_idx: Int) -> Bool:
-    if len(state.pieces) < 3:
+    if state.token_count < 3:
         return False
 
     var left_idx = left_neighbor(state, plus_idx)
@@ -59,7 +59,7 @@ def plus_can_react(state: GameState, plus_idx: Int) -> Bool:
 
 
 def black_plus_can_react(state: GameState, bp_idx: Int) -> Bool:
-    if len(state.pieces) < 3:
+    if state.token_count < 3:
         return False
 
     var left_idx = left_neighbor(state, bp_idx)
@@ -76,7 +76,7 @@ def black_plus_can_react(state: GameState, bp_idx: Int) -> Bool:
 def chain_react(
     mut state: GameState, center_idx: Int, depth: Int
 ) raises -> Tuple[Int, Int]:
-    if len(state.pieces) < 3:
+    if state.token_count < 3:
         return (0, center_idx)
 
     var left_idx = left_neighbor(state, center_idx)
@@ -254,9 +254,9 @@ def resolve_board_outcome(
     while should_continue:
         should_continue = False
         var best_idx = -1
-        var best_ccw = len(state.pieces) + 1
+        var best_ccw = state.token_count + 1
 
-        for index in range(len(state.pieces)):
+        for index in range(state.token_count):
             var token = state.pieces[index]
             var can_react = False
 
@@ -267,7 +267,7 @@ def resolve_board_outcome(
 
             if can_react:
                 var current_ccw = ccw_distance(
-                    scan_origin, index, len(state.pieces)
+                    scan_origin, index, state.token_count
                 )
 
                 if best_idx < 0 or current_ccw < best_ccw:
@@ -284,7 +284,7 @@ def resolve_board_outcome(
 
             total_score += result[0]
             if (
-                result[1] < len(state.pieces)
+                result[1] < state.token_count
                 and Int(state.pieces[result[1]]) > reward
             ):
                 reward = Int(state.pieces[result[1]])

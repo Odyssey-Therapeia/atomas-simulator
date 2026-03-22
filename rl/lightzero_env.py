@@ -10,9 +10,9 @@ import numpy.typing as npt
 from web.bridge import NucleoGame
 
 
-TOKEN_SLOT_COUNT = 60
-OBSERVATION_SIZE = 64
-MAX_ACTIONS = 65
+TOKEN_SLOT_COUNT = 36
+OBSERVATION_SIZE = 40
+MAX_ACTIONS = 37
 
 Int8Array: TypeAlias = npt.NDArray[np.int8]
 BoolArray: TypeAlias = npt.NDArray[np.bool_]

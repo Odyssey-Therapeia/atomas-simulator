@@ -10,9 +10,9 @@ from .spawn import spawn_piece
 
 
 def gap_action_count(state: GameState) -> int:
-    if len(state.pieces) == 0:
+    if state.token_count == 0:
         return 1
-    return len(state.pieces)
+    return state.token_count
 
 
 def update_terminal_state(state: GameState) -> None:
@@ -49,12 +49,13 @@ def legal_actions(state: GameState) -> list[bool]:
         return mask
 
     if state.current_piece == MINUS or state.current_piece == NEUTRINO:
-        for token in state.pieces:
+        for index in range(state.token_count):
+            token = state.pieces[index]
             mask.append(token > 0)
         return mask
 
     can_place_regular = not (state.current_piece > 0 and state.atom_count >= MAX_ATOMS)
-    action_is_legal = can_place_regular or state.current_piece <= 0
+    action_is_legal = can_place_regular
 
     for _ in range(gap_action_count(state)):
         mask.append(action_is_legal)

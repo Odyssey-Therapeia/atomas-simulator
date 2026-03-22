@@ -22,7 +22,9 @@ from .scoring import (
 
 def _require_int8_merged_atom(value: int, context: str) -> None:
     if value <= 0 or value > INT8_ATOM_MAX:
-        raise ValueError(f"{context}: Int8 overflow")
+        raise ValueError(
+            f"{context}: Int8 overflow: value={value}, max={INT8_ATOM_MAX}"
+        )
 
 
 def min3(a: int, b: int, c: int) -> int:
@@ -48,7 +50,7 @@ def middle3(a: int, b: int, c: int) -> int:
 
 
 def plus_can_react(state: GameState, plus_idx: int) -> bool:
-    if len(state.pieces) < 3:
+    if state.token_count < 3:
         return False
 
     left_idx = left_neighbor(state, plus_idx)
@@ -63,7 +65,7 @@ def plus_can_react(state: GameState, plus_idx: int) -> bool:
 
 
 def black_plus_can_react(state: GameState, bp_idx: int) -> bool:
-    if len(state.pieces) < 3:
+    if state.token_count < 3:
         return False
 
     left_idx = left_neighbor(state, bp_idx)
@@ -79,7 +81,7 @@ def black_plus_can_react(state: GameState, bp_idx: int) -> bool:
 
 def chain_react(state: GameState, center_idx: int, depth: int) -> tuple[int, int]:
     """Recursive symmetric chain around a center atom; returns (score_delta, center_index)."""
-    if len(state.pieces) < 3:
+    if state.token_count < 3:
         return (0, center_idx)
 
     left_idx = left_neighbor(state, center_idx)
@@ -195,9 +197,9 @@ def resolve_board_outcome(state: GameState, placement_idx: int) -> tuple[int, in
     while should_continue:
         should_continue = False
         best_idx = -1
-        best_ccw = len(state.pieces) + 1
+        best_ccw = state.token_count + 1
 
-        for index in range(len(state.pieces)):
+        for index in range(state.token_count):
             token = state.pieces[index]
             can_react = False
 
@@ -207,7 +209,7 @@ def resolve_board_outcome(state: GameState, placement_idx: int) -> tuple[int, in
                 can_react = black_plus_can_react(state, index)
 
             if can_react:
-                current_ccw = ccw_distance(scan_origin, index, len(state.pieces))
+                current_ccw = ccw_distance(scan_origin, index, state.token_count)
 
                 if best_idx < 0 or current_ccw < best_ccw:
                     best_idx = index
@@ -221,7 +223,7 @@ def resolve_board_outcome(state: GameState, placement_idx: int) -> tuple[int, in
                 result_score, result_idx = resolve_plus(state, best_idx)
 
             total_score += result_score
-            if result_idx < len(state.pieces) and int(state.pieces[result_idx]) > reward:
+            if result_idx < state.token_count and int(state.pieces[result_idx]) > reward:
                 reward = int(state.pieces[result_idx])
             scan_origin = result_idx
             should_continue = True

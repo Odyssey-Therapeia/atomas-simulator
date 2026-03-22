@@ -16,14 +16,15 @@ Mojo gives us Python-like readability with C++-level performance, and compiles t
 
 ## Performance Baseline
 
-Phase A establishes the first reproducible benchmark baseline for the current heap-allocating engine, along with a pure-Python comparison engine and safety-focused validation harnesses.
+Phase B replaces the heap-backed token ring with a stack-allocated `InlineArray[Int8, 36]` plus `token_count`, removes the remaining hot-path allocations in `legal_actions()` and pity-spawn selection, and tightens the RL wrapper to a `36/40/37` observation-action contract.
 
-### Phase A Results
+### Phase B Results
 
 These numbers were collected on the current `osx-arm64` development machine using the default benchmark settings:
 
 - `pixi run bench-throughput`
 - `pixi run bench-allocation`
+- `pixi run bench-fork`
 - `pixi run bench-python`
 
 Methodology:
@@ -31,31 +32,34 @@ Methodology:
 - Mojo throughput benchmark: 100 warmup games and 1000 measured games per repetition across 5 repetitions
 - Python throughput benchmark: 100 warmup games and 1000 measured games per repetition across 5 repetitions
 - Allocation benchmark: 1000 warmup insert/remove cycles and 100000 measured cycles across 5 repetitions
+- Fork benchmark: 10 warmup game steps, then 1000000 `GameState` copies
 - Stress and determinism checks: `pixi run test-stress` and `pixi run test-determinism`
 
 | Benchmark | Result |
 | --- | --- |
-| Mojo environment throughput | 800,829 steps/sec mean |
-| Python environment throughput | 162,248 steps/sec mean |
-| Mojo/Python speedup | 4.94x |
-| `insert_at` throughput | 4,429,096 ops/sec mean |
-| `remove_at` throughput | 4,570,418 ops/sec mean |
-| Mojo benchmark CV | 0.78% |
-| Python benchmark CV | 2.03% |
-| Allocation benchmark CV | 1.52% insert, 0.51% remove |
+| Mojo environment throughput | 1,523,217 steps/sec mean |
+| Python environment throughput | 174,701 steps/sec mean |
+| Mojo/Python speedup | 8.72x |
+| `insert_at` throughput | 173,461,449 ops/sec mean |
+| `remove_at` throughput | 23,892,317 ops/sec mean |
+| `GameState` fork cost | 0.563 ns per copy |
+| Mojo benchmark CV | 1.23% |
+| Python benchmark CV | 0.23% |
+| Allocation benchmark CV | 11.56% insert, 2.03% remove |
 
-### What Phase A Delivered
+### What Phase B Delivered
 
-- Safety guards for negative actions and merged-atom overflow paths
-- A 10,000-game stress test that caught and fixed a real `highest_atom` bookkeeping bug
-- A determinism replay test for seeded sequential trajectories
-- Mojo benchmark harnesses for throughput and ring-allocation microbenchmarks
-- A pure-Python engine port plus Python throughput benchmark
-- Cross-validation tooling and pre-generated random-sequence artifacts
+- A stack-allocated `InlineArray[Int8, 36]` ring with explicit `token_count` tracking
+- Zero-allocation in-place `insert_at()` / `remove_at()` ring mutation
+- Zero-allocation `legal_actions()` via fixed-capacity action masks
+- Zero-allocation pity-spawn selection in `pick_straggler_spawn()`
+- Tighter RL tensors and masks: `TOKEN_SLOT_COUNT=36`, `OBSERVATION_SIZE=40`, `MAX_ACTIONS=37`
+- A `GameState` fork benchmark to measure value-semantic copy cost
+- Full regression coverage preserved across `pixi run test`, `pixi run test-stress`, and `pixi run test-determinism`
 
 ### Cross-Validation Status
 
-The Python baseline can replay a pre-generated random sequence exactly. Exact step-for-step parity between the Mojo engine and the Python engine is not yet supported because the current Mojo engine still consumes RNG internally and does not expose an injected random-stream interface. The `verify-cross` task therefore reports seeded corpus mismatches honestly instead of pretending exact parity exists.
+The Python baseline can replay a pre-generated random sequence exactly, and it now mirrors the Phase B `token_count` semantics used by the Mojo engine. Exact step-for-step parity between the Mojo engine and the Python engine is still not supported because the current Mojo engine consumes RNG internally and does not expose an injected random-stream interface. The `verify-cross` task therefore reports seeded corpus mismatches honestly instead of pretending exact parity exists.
 
 ## Game Mechanics (Reverse-Engineered from Atomas)
 
@@ -117,7 +121,7 @@ src/
 ```
 
 Key design decisions:
-- The ring is a **fixed-size array of 18 Int8 values** (not a dynamic list)
+- The engine stores the ring in a **stack-allocated `InlineArray[Int8, 36]` plus `token_count`**; the gameplay atom cap remains 18
 - The ring should be canonicalized before feeding to a neural network: **rotate so the highest-value element is at index 0** (reduces effective state space by ~18x)
 - `step(action) -> (observation, reward, done, info)` pattern from day one, even before RL integration
 - All functions should be `fn` (typed, compiled) not `def` (dynamic) for performance

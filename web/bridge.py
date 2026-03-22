@@ -14,37 +14,48 @@ ROOT = Path(__file__).resolve().parent.parent
 SRC_DIR = ROOT / "src"
 ENGINE_MODULE_NAME = "python_module"
 ENGINE_LIB = ROOT / f"{ENGINE_MODULE_NAME}.so"
+ENGINE_SOURCE = SRC_DIR / "nucleo" / "python_module.mojo"
 
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
+def build_engine_module() -> None:
+    subprocess.run(
+        [
+            "pixi",
+            "run",
+            "mojo",
+            "build",
+            "-I",
+            str(SRC_DIR),
+            str(ENGINE_SOURCE),
+            "--emit",
+            "shared-lib",
+            "-o",
+            str(ENGINE_LIB),
+        ],
+        cwd=ROOT,
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
 def load_engine_module():
+    if not ENGINE_LIB.exists() or ENGINE_LIB.stat().st_mtime < ENGINE_SOURCE.stat().st_mtime:
+        build_engine_module()
+        importlib.invalidate_caches()
+        sys.modules.pop(ENGINE_MODULE_NAME, None)
+
     stderr_buffer = io.StringIO()
     with contextlib.redirect_stderr(stderr_buffer):
         try:
             return importlib.import_module(ENGINE_MODULE_NAME)
         except ModuleNotFoundError:
-            subprocess.run(
-                [
-                    "pixi",
-                    "run",
-                    "mojo",
-                    "build",
-                    "-I",
-                    str(SRC_DIR),
-                    str(SRC_DIR / "nucleo" / "python_module.mojo"),
-                    "--emit",
-                    "shared-lib",
-                    "-o",
-                    str(ENGINE_LIB),
-                ],
-                cwd=ROOT,
-                check=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
+            build_engine_module()
             importlib.invalidate_caches()
+            sys.modules.pop(ENGINE_MODULE_NAME, None)
             return importlib.import_module(ENGINE_MODULE_NAME)
 
 

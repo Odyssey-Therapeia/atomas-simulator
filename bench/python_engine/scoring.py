@@ -30,7 +30,8 @@ def black_plus_score(left: int, right: int) -> int:
 def end_game_bonus(state: GameState) -> int:
     """Sum of positive atom values still on the ring."""
     total = 0
-    for token in state.pieces:
+    for index in range(state.token_count):
+        token = state.pieces[index]
         if token > 0:
             total += int(token)
     return total

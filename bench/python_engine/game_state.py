@@ -6,6 +6,7 @@ import random
 from dataclasses import dataclass, field
 
 from .constants import (
+    BLACK_PLUS,
     BLACK_PLUS_SCORE_GATE,
     BLACK_PLUS_SPAWN_RATE,
     EMPTY,
@@ -26,6 +27,7 @@ class GameState:
 
     rng_seed: int = -1
     pieces: list[int] = field(default_factory=list)
+    token_count: int = 0
     atom_count: int = 0
     current_piece: int = EMPTY
     score: int = 0
@@ -40,12 +42,12 @@ class GameState:
     _rng: random.Random = field(default_factory=random.Random, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "_rng", random.Random())
         self.reset()
 
     def reset(self) -> None:
         """Clear transient fields, re-seed RNG, build opening board, spawn first hand piece."""
         self.pieces = []
+        self.token_count = 0
         self.atom_count = 0
         self.current_piece = EMPTY
         self.score = 0
@@ -61,7 +63,7 @@ class GameState:
         if self.rng_seed >= 0:
             self._rng.seed(self.rng_seed)
         else:
-            object.__setattr__(self, "_rng", random.Random())
+            self._rng = random.Random()
 
         self.spawn_initial_board()
         self.spawn_piece()
@@ -82,7 +84,8 @@ class GameState:
     def pick_straggler_spawn(self, minimum_regular: int) -> int:
         """Pity spawn of a low atom already on the ring; ``EMPTY`` if none or roll fails."""
         stragglers: list[int] = []
-        for token in self.pieces:
+        for index in range(self.token_count):
+            token = self.pieces[index]
             if token > 0 and int(token) < minimum_regular:
                 stragglers.append(token)
 
@@ -143,11 +146,17 @@ class GameState:
 
         self.update_spawn_counters(self.current_piece)
 
+    def randint(self, lower: int, upper: int) -> int:
+        """Expose bounded integer sampling without leaking direct RNG access."""
+        return self._rng.randint(lower, upper)
+
     def spawn_initial_board(self) -> None:
         """Six atoms in ``[1, 3]``; recompute ``atom_count`` and ``highest_atom``."""
         self.pieces = [int(self._rng.randint(1, 3)) for _ in range(6)]
-        self.atom_count = len(self.pieces)
+        self.token_count = len(self.pieces)
+        self.atom_count = self.token_count
         self.highest_atom = HYDROGEN
-        for token in self.pieces:
+        for index in range(self.token_count):
+            token = self.pieces[index]
             if token > self.highest_atom:
                 self.highest_atom = token

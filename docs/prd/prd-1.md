@@ -5,7 +5,8 @@
 **Internal Code:** OT-NAU [CC-900] — EXP-1-26
 **Status:** Draft
 **Version:** 1.0
-Status : 
+Status : in progress
+
 ---
 
 ## 1. Vision & Purpose
@@ -309,9 +310,18 @@ The Python baseline must implement: GameState (ring as a Python list), spawn_pie
 
 ### 5.3 Correctness Verification
 
-A cross-validation script (`bench/verify_determinism.py`) plays the same 100 seeded games on both engines and asserts that every intermediate state matches. This requires the Python engine to use the same PRNG as Mojo — since Mojo uses its own RNG internally, the Python version should use a reimplemented version of the same algorithm, or both should use a simple shared PRNG (e.g., xoshiro256) that produces identical sequences given the same seed.
+The shipped cross-validation entry point is `bench/verify_cross_validation.py`, not `bench/verify_determinism.py`.
 
-If exact determinism across Python and Mojo is impractical (because their RNG implementations differ), an alternative is to drive both engines with a pre-generated sequence of random numbers, ensuring they receive identical randomness.
+Current verification has two parts:
+
+1. The Python baseline replays a pre-generated random sequence exactly, proving that the Python benchmark engine itself is deterministic under an injected RNG stream.
+2. The Python and Mojo engines are compared over a seeded corpus, but exact step-for-step parity is **not yet supported** because the Mojo engine still consumes RNG internally and does not expose an injected random-stream interface.
+
+Because of that limitation, the current correctness story is:
+
+- exact replay within the Python baseline using pre-generated RNG sequences
+- honest cross-validation reporting between Python and Mojo via `bench/verify_cross_validation.py`
+- no claim of exact seeded parity between the two engines until Mojo exposes shared PRNG / injected-stream support
 
 ---
 
@@ -344,10 +354,10 @@ If exact determinism across Python and Mojo is impractical (because their RNG im
 
 Each benchmark should be runnable via a pixi task:
 
-```
+```bash
 pixi run bench-throughput     # Mojo engine throughput
 pixi run bench-python         # Python baseline
-pixi run bench-ring           # Ring operation microbenchmark
+pixi run bench-allocation     # Ring operation microbenchmark
 pixi run bench-fork           # GameState copy cost
 pixi run bench-simd           # SIMD vs scalar comparison
 pixi run bench-gpu            # GPU parallel throughput

@@ -3,6 +3,7 @@ from nucleo.game_state import (
     EMPTY,
     GameState,
     MAX_ATOMS,
+    MAX_RING_CAPACITY,
     MINUS,
     NEUTRINO,
     PLUS,
@@ -10,12 +11,14 @@ from nucleo.game_state import (
 from nucleo.ring import insert_at, remove_at
 from nucleo.spawn import spawn_piece
 
+comptime MAX_ACTION_SLOTS: Int = MAX_RING_CAPACITY + 1
+
 
 def gap_action_count(state: GameState) -> Int:
-    if len(state.pieces) == 0:
+    if state.token_count == 0:
         return 1
 
-    return len(state.pieces)
+    return state.token_count
 
 
 def update_terminal_state(mut state: GameState):
@@ -34,37 +37,43 @@ def update_terminal_state(mut state: GameState):
     state.is_terminal = state.current_piece > 0
 
 
-def legal_actions(state: GameState) -> List[Bool]:
-    var mask: List[Bool] = []
+def legal_actions(
+    state: GameState,
+) -> Tuple[InlineArray[Bool, MAX_ACTION_SLOTS], Int]:
+    var mask = InlineArray[Bool, MAX_ACTION_SLOTS](fill=False)
 
     if state.is_terminal:
-        for _ in range(gap_action_count(state)):
-            mask.append(False)
-        return mask^
+        var valid_count = gap_action_count(state)
+        return (mask, valid_count)
 
     if state.holding_piece:
-        for _ in range(gap_action_count(state)):
-            mask.append(True)
+        var valid_count = gap_action_count(state)
+        for index in range(valid_count):
+            mask[index] = True
 
         if state.held_can_convert:
-            mask.append(True)
+            mask[valid_count] = True
+            valid_count += 1
 
-        return mask^
+        return (mask, valid_count)
 
     if state.current_piece == MINUS or state.current_piece == NEUTRINO:
-        for token in state.pieces:
-            mask.append(token > 0)
-        return mask^
+        var valid_count = state.token_count
+        for index in range(state.token_count):
+            var token = state.pieces[index]
+            mask[index] = token > 0
+        return (mask, valid_count)
 
     var can_place_regular = not (
         state.current_piece > 0 and state.atom_count >= MAX_ATOMS
     )
     var action_is_legal = can_place_regular or state.current_piece <= 0
 
-    for _ in range(gap_action_count(state)):
-        mask.append(action_is_legal)
+    var valid_count = gap_action_count(state)
+    for index in range(valid_count):
+        mask[index] = action_is_legal
 
-    return mask^
+    return (mask, valid_count)
 
 
 def finish_placement_turn(mut state: GameState, action: Int) raises -> Int:
@@ -102,9 +111,9 @@ def apply_action(mut state: GameState, action: Int) raises -> Int:
     if action < 0:
         raise Error("apply_action: action must be non-negative")
 
-    var mask = legal_actions(state)
+    var mask_result = legal_actions(state)
 
-    if action >= len(mask) or not mask[action]:
+    if action >= mask_result[1] or not mask_result[0][action]:
         return 0
 
     if state.holding_piece:
