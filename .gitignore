@@ -1,0 +1,11 @@
+.pixi/
+pixi.lock
+*.mojopkg
+__mojocache__/
+__pycache__/
+.DS_Store
+.env
+/nucleo
+nucleo_engine.so
+python_module.so
+.cursor/hooks/state/continual-learning.json
