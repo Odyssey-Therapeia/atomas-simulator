@@ -20,21 +20,26 @@ Mojo gives us Python-like readability with C++-level performance, and compiles t
 ## Game Mechanics (Reverse-Engineered from Atomas)
 
 ### Core Loop
-- The board is a **circular ring** with a maximum capacity of **18 slots**
+- The board is a **circular ring of tokens**
+- The gameplay cap is **18 atoms**, not 18 total tokens
+- Persistent Plus and Black Plus tokens can remain on the ring, so total token count can exceed 18
 - Each turn, the player receives a random element (or special item) in their "hand"
 - The player places the element into a gap between existing elements on the ring
-- If the placement triggers a **chain reaction** (via Plus atoms), elements merge into higher-value elements
-- The game ends when the ring fills to 18 elements and a new element cannot be placed
+- If the placement or a later board change completes symmetry around an existing Plus/Black Plus token, a **chain reaction** starts
+- The game starts with a seeded **6-atom opening board** in the range 1-3
+- The game ends when the ring has 18 atoms and the next piece is a regular atom that cannot legally be played
 - The goal is to achieve the highest possible score
 
 ### Elements
 - Regular elements are represented as positive integers corresponding to atomic numbers (1 = Hydrogen, 2 = Helium, 3 = Lithium, etc.)
-- Special items use negative integers: -1 = Plus, -2 = Minus, -3 = Black Plus
+- Special items use negative integers: -1 = Plus, -2 = Minus, -3 = Black Plus, -4 = Neutrino
 - Empty slots are represented as 0
 
 ### Spawn Algorithm
-- **Plus (+):** ~15-20% chance, roughly every 5-6 moves
+- **Plus (+):** ~17% chance, guaranteed at least every 5 moves
 - **Minus (-):** ~5% chance, roughly every 20 moves
+- **Black Plus:** 1/80 chance when score > 750
+- **Neutrino:** 1/60 chance when score > 1500
 - **Regular elements:** Uniform spawn in range `[max(1, M-4), max(1, M-1)]` where M = highest element on the board
 - **Pity spawns:** Low-level straggler elements occasionally force-spawned to help the player clear them
 
@@ -55,6 +60,12 @@ When a Plus (+) is placed between two matching elements:
 ### Black Plus Behavior
 - Functions like Plus but can merge **any** two adjacent elements, regardless of whether they match
 - Result follows the same math as regular Plus merges
+- When a Dark Plus fuses a Plus or Black Plus token, treat that special as effective value `1`
+
+### Neutrino Behavior
+- Neutrino copies an atom on the ring without removing the original
+- The copied atom goes into the player's hand and **cannot** be converted into a Plus
+- If played on a full 18-atom board, it can overflow the atom cap and immediately end the game unless a reaction reduces the board
 
 ### Scoring
 - Raw game scores are exponential (2^X where X is the element number)
@@ -68,20 +79,26 @@ This is the core. Zero UI, zero network, zero Python dependencies. Just game log
 
 ```
 src/
-├── game_state.mojo      # GameState struct: the ring, current piece, score, move count
-├── ring.mojo             # Circular ring data structure and SIMD operations
-├── fusion.mojo           # Chain reaction resolution logic
-├── spawn.mojo            # Element spawn RNG and pity system
-├── actions.mojo          # Action space: legal_actions(), apply_action()
-└── scoring.mojo          # Score calculation and reward shaping
+├── nucleo/
+│   ├── __init__.mojo     # Package root
+│   ├── game_state.mojo   # Authoritative gameplay state and reset/spawn helpers
+│   ├── ring.mojo         # Circular token-ring operations
+│   ├── fusion.mojo       # Board-driven scan + chain reaction resolution
+│   ├── spawn.mojo        # Spawn wrappers over GameState spawn methods
+│   ├── actions.mojo      # legal_actions(), apply_action(), step()
+│   └── scoring.mojo      # Score calculation and reward shaping
+└── main.mojo             # Thin CLI entrypoint
 ```
 
 Key design decisions:
-- The ring is a **fixed-size array of 18 Int8 values** (not a dynamic list)
-- The ring should be canonicalized before feeding to a neural network: **rotate so the highest-value element is at index 0** (reduces effective state space by ~18x)
+- The engine ring is a **dynamic `List[Int8]` of tokens**, not a fixed-size atom array
+- `atom_count <= 18` is the gameplay invariant; token count may exceed 18 because unresolved Plus tokens persist
+- Reactions are **board-driven**, not just current-piece-driven: after any placement, scan the ring for reactable Plus/Black Plus tokens
+- The RL wrapper canonicalizes the ring by rotating so the highest-value atom is at index 0
 - `step(action) -> (observation, reward, done, info)` pattern from day one, even before RL integration
-- All functions should be `fn` (typed, compiled) not `def` (dynamic) for performance
-- Action space is `Discrete(19)`: actions 0-17 = insert at gap i, action 18 = convert held element to Plus
+- All new Mojo code should use **`def`**, not deprecated `fn`
+- The engine action space is **dynamic** based on token count and held-piece state
+- The RL wrapper projects that dynamic action space into a padded `MAX_ACTIONS = 65` mask
 
 ### Layer 2: Play Interface (Python + Mojo Interop)
 
@@ -102,20 +119,21 @@ A Gymnasium-compatible wrapper for RL training. Not built initially, but Layer 1
 
 ```
 rl/
+├── observation.mojo      # Padded observation encoding and canonical rotation
 ├── env.mojo              # Gymnasium-compatible environment wrapper
-├── observation.mojo      # Observation space encoding
-└── wrappers.mojo         # Canonicalization, reward shaping, action masking
+├── wrappers.mojo         # Reward shaping and normalization
+└── lightzero_env.py      # LightZero adapter
 ```
 
 ## MDP Formulation (For RL — Guides Engine Design)
 
-Even though we're building a playable game first, the engine's internal API follows the MDP formulation because the RL interface will wrap it directly later.
+Even though we're building a faithful playable game first, the RL interface wraps the engine without changing game rules.
 
-- **Observation:** 1D array of length 20 — 18 ring slots (padded with 0 for empty), 1 slot for current_piece, 1 boolean for holding_minus_absorbed_element
-- **Action space:** Discrete(19) — actions 0-17 insert at gap i (or absorb at index i for Minus), action 18 converts absorbed element to Plus
-- **Action masking:** Critical — disable actions beyond current ring size. MuZero handles masked actions natively.
+- **Observation:** Padded token tensor with `MAX_OBSERVATION_TOKENS = 64`, plus hand/holding metadata
+- **Action space:** Dynamic in the engine, padded to `MAX_ACTIONS = 65` in the RL wrapper
+- **Action masking:** Critical — mask unused padded positions and illegal gap/select/convert actions
 - **Reward:** Linear element value of merged atom, NOT raw exponential score
-- **Terminal condition:** Ring reaches 18 elements and new element cannot be placed
+- **Terminal condition:** 18 atoms plus a regular in-hand spawn, or an overflow caused by a Neutrino placement that failed to resolve back under the cap
 
 ## Build & Run
 
@@ -127,7 +145,7 @@ pixi install
 pixi run test
 
 # Run the headless game (CLI mode)
-pixi run mojo src/main.mojo
+pixi run run
 
 # Start the web interface (requires Python interop layer)
 pixi run serve
@@ -137,6 +155,9 @@ pixi run serve
 
 - Test chain reactions against known board states
 - Key test case: `[9, 3, 3, 3, +, 3, 3, 3, 9]` with Plus at index 4 → should resolve to `[11]`
+- Test persistent Plus behavior: unresolved Plus stays on the ring and can react later
+- Test counter-clockwise precedence when two Plus tokens could both react
+- Test Neutrino copy/place behavior at and below the atom cap
 - Test circular wrapping: merges that cross the 0-boundary of the ring
 - Test action masking: verify illegal actions are properly masked
 - Test spawn distribution: statistical tests over many spawns to verify rates match expected distributions

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nucleo</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: Inter, system-ui, sans-serif;
+        background: #0f172a;
+        color: #e2e8f0;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: radial-gradient(circle at top, #1e293b 0%, #0f172a 65%);
+      }
+
+      main {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 2rem;
+      }
+
+      p {
+        margin: 0;
+        color: #cbd5e1;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(320px, 720px) minmax(240px, 1fr);
+        gap: 24px;
+        margin-top: 24px;
+      }
+
+      .panel {
+        background: rgba(15, 23, 42, 0.78);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(15, 23, 42, 0.35);
+      }
+
+      canvas {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+
+      .sidebar {
+        display: grid;
+        gap: 16px;
+        padding: 20px;
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .stat {
+        padding: 14px;
+        border-radius: 14px;
+        background: rgba(30, 41, 59, 0.85);
+      }
+
+      .stat-label {
+        display: block;
+        font-size: 0.85rem;
+        color: #94a3b8;
+      }
+
+      .stat-value {
+        display: block;
+        margin-top: 6px;
+        font-size: 1.1rem;
+        font-weight: 600;
+      }
+
+      button {
+        padding: 12px 16px;
+        border: 0;
+        border-radius: 12px;
+        background: #38bdf8;
+        color: #082f49;
+        font-size: 0.95rem;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background: #7dd3fc;
+      }
+
+      .message {
+        min-height: 84px;
+        padding: 14px;
+        border-radius: 14px;
+        background: rgba(30, 41, 59, 0.85);
+        color: #cbd5e1;
+        line-height: 1.5;
+      }
+
+      .footer {
+        font-size: 0.85rem;
+        color: #94a3b8;
+      }
+
+      @media (max-width: 900px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Nucleo</h1>
+      <p>A high-fidelity Atomas-style simulator powered by Mojo.</p>
+
+      <div class="layout">
+        <section class="panel">
+          <canvas id="game-canvas" width="720" height="720"></canvas>
+        </section>
+
+        <aside class="panel sidebar">
+          <div class="stats">
+            <div class="stat">
+              <span class="stat-label">Score</span>
+              <span class="stat-value" id="score-value">0</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Moves</span>
+              <span class="stat-value" id="moves-value">0</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Atoms</span>
+              <span class="stat-value" id="atoms-value">0</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Highest</span>
+              <span class="stat-value" id="highest-value">0</span>
+            </div>
+          </div>
+
+          <button id="reset-button" type="button">Reset Game</button>
+
+          <div class="message" id="message-box">
+            Loading Nucleo...
+          </div>
+
+          <div class="footer">
+            Click a gap to place atoms and Plus tokens. Click an atom when the
+            current piece is Minus or Neutrino. Click the center piece to
+            convert a held Minus atom into a Plus when available.
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <script src="/static/game.js"></script>
+  </body>
+</html>

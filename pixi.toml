@@ -8,8 +8,15 @@ version = "0.1.0"
 [tasks]
 build = "mojo build -I src src/main.mojo -o nucleo"
 run = "mojo run -I src src/main.mojo"
-test = "mojo run -I src tests/test_game_state.mojo"
+test = "mojo run -I src tests/test_game_state.mojo && mojo run -I src tests/test_ring.mojo && mojo run -I src tests/test_scoring.mojo && mojo run -I src tests/test_fusion.mojo && mojo run -I src tests/test_spawn.mojo && mojo run -I src tests/test_actions.mojo && mojo run -I src tests/test_integration.mojo && mojo run -I src -I rl tests/test_rl_modules.mojo && python tests/test_web_smoke.py && python tests/test_rl_smoke.py"
 format = "mojo format src/ tests/"
+serve = "python -m uvicorn web.server:app --reload --port 8080"
 
 [dependencies]
 mojo = ">=0.26.2,<0.27"
+python = "3.11.*"
+fastapi = ">=0.135.1,<0.136"
+uvicorn = ">=0.42.0,<0.43"
+httpx = ">=0.28.1,<0.29"
+numpy = ">=2.4.3,<3"
+gymnasium = ">=1.2.3,<2"

@@ -5,3 +5,5 @@ __pycache__/
 .DS_Store
 .env
 nucleo
+nucleo_engine.so
+python_module.so
