@@ -93,6 +93,19 @@ def test_recalculate_highest_uses_empty_for_empty_ring() raises:
     assert_equal(game.highest_atom, EMPTY)
 
 
+def test_remove_at_clears_highest_when_last_atom_is_removed() raises:
+    var game = GameState()
+    game.pieces = [Int8(2), PLUS, BLACK_PLUS]
+    game.atom_count = 1
+    game.highest_atom = 2
+
+    var removed = remove_at(game, 0)
+
+    assert_equal(removed, 2)
+    assert_equal(game.atom_count, 0)
+    assert_equal(game.highest_atom, EMPTY)
+
+
 def test_effective_value_and_ccw_distance_follow_spec() raises:
     assert_equal(effective_value(Int8(9)), 9)
     assert_equal(effective_value(PLUS), 1)

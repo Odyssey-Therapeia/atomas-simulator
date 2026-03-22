@@ -1,7 +1,13 @@
 from nucleo.actions import apply_action, legal_actions, step
 from nucleo.game_state import EMPTY, GameState, MINUS, NEUTRINO, PLUS
 from nucleo.ring import recalculate_atom_count, recalculate_highest
-from std.testing import TestSuite, assert_equal, assert_false, assert_true
+from std.testing import (
+    TestSuite,
+    assert_equal,
+    assert_false,
+    assert_raises,
+    assert_true,
+)
 
 
 def set_state_pieces(mut game: GameState, var pieces: List[Int8]):
@@ -204,6 +210,15 @@ def test_step_returns_reward_and_done_flag() raises:
 
     assert_equal(result[0], 4)
     assert_false(result[1])
+
+
+def test_apply_action_rejects_negative_actions() raises:
+    var game = GameState(game_seed=47)
+    set_state_pieces(game, [Int8(2), Int8(4)])
+    game.current_piece = PLUS
+
+    with assert_raises(contains="non-negative"):
+        _ = apply_action(game, -1)
 
 
 def main() raises:

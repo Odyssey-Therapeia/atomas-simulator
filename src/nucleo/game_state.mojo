@@ -99,9 +99,7 @@ struct GameState(Movable, Writable):
         if random_float64() >= pity_threshold:
             return EMPTY
 
-        var straggler_idx = Int(
-            random_si64(0, Int64(len(stragglers) - 1))
-        )
+        var straggler_idx = Int(random_si64(0, Int64(len(stragglers) - 1)))
         return stragglers[straggler_idx]
 
     def update_spawn_counters(mut self, spawned_piece: Int8):

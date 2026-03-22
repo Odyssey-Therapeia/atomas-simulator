@@ -5,7 +5,7 @@ from nucleo.fusion import (
 )
 from nucleo.game_state import BLACK_PLUS, GameState, PLUS
 from nucleo.ring import recalculate_atom_count, recalculate_highest
-from std.testing import TestSuite, assert_equal
+from std.testing import TestSuite, assert_equal, assert_raises
 
 
 def set_state_pieces(mut game: GameState, var pieces: List[Int8]):
@@ -137,6 +137,33 @@ def test_board_scan_prefers_counter_clockwise_plus() raises:
     assert_equal(len(game.pieces), 2)
     assert_equal(game.pieces[0], 3)
     assert_equal(game.pieces[1], PLUS)
+
+
+def test_plus_chain_reaction_raises_on_int8_overflow() raises:
+    var game = GameState()
+    set_state_pieces(
+        game,
+        [
+            Int8(126),
+            Int8(126),
+            Int8(126),
+            PLUS,
+            Int8(126),
+            Int8(126),
+            Int8(126),
+        ],
+    )
+
+    with assert_raises(contains="Int8 overflow"):
+        _ = resolve_plus(game, 3)
+
+
+def test_black_plus_raises_on_int8_overflow() raises:
+    var game = GameState()
+    set_state_pieces(game, [Int8(125), BLACK_PLUS, Int8(125)])
+
+    with assert_raises(contains="Int8 overflow"):
+        _ = resolve_black_plus(game, 1)
 
 
 def main() raises:

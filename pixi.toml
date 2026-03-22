@@ -16,9 +16,16 @@ test-fusion = "mojo run -I src tests/test_fusion.mojo"
 test-spawn = "mojo run -I src tests/test_spawn.mojo"
 test-actions = "mojo run -I src tests/test_actions.mojo"
 test-integration = "mojo run -I src tests/test_integration.mojo"
+test-stress = "mojo run -I src tests/test_stress.mojo"
+test-determinism = "mojo run -I src tests/test_determinism.mojo"
 test-rl-modules = "mojo run -I src -I rl tests/test_rl_modules.mojo"
 test-web-smoke = { cmd = ["bash", "-lc", "\".pixi/envs/default/bin/python\" \"tests/test_web_smoke.py\""] }
 test-rl-smoke = { cmd = ["bash", "-lc", "\".pixi/envs/default/bin/python\" \"tests/test_rl_smoke.py\""] }
+bench-throughput = "mojo run -I src -I bench bench/bench_throughput.mojo"
+bench-allocation = "mojo run -I src -I bench bench/bench_allocation.mojo"
+bench-python = "python bench/bench_python.py"
+generate-sequences = "python bench/generate_sequences.py"
+verify-cross = { cmd = ["bash", "-lc", "\".pixi/envs/default/bin/python\" \"bench/verify_cross_validation.py\""] }
 test = { depends-on = [
     "test-game-state",
     "test-ring",
@@ -31,7 +38,13 @@ test = { depends-on = [
     "test-web-smoke",
     "test-rl-smoke",
 ] }
-format = "mojo format src/ tests/"
+test-all = { depends-on = [
+    "test",
+    "test-stress",
+    "test-determinism",
+] }
+bench-all = { cmd = ["bash", "-lc", "\".pixi/envs/default/bin/python\" \"bench/generate_sequences.py\" && \".pixi/envs/default/bin/mojo\" run -I src -I bench bench/bench_throughput.mojo && \".pixi/envs/default/bin/mojo\" run -I src -I bench bench/bench_allocation.mojo && \".pixi/envs/default/bin/python\" \"bench/bench_python.py\" && \".pixi/envs/default/bin/python\" \"bench/verify_cross_validation.py\""] }
+format = "mojo format src/ tests/ bench/"
 serve = "python -m uvicorn web.server:app --reload --port 8080"
 
 [dependencies]

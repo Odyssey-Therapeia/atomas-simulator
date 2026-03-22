@@ -14,6 +14,49 @@ The project serves three purposes:
 
 Mojo gives us Python-like readability with C++-level performance, and compiles to NVIDIA, AMD, and Apple Silicon GPUs from a single codebase. This project demonstrates that Mojo is viable for game simulation and RL environment development — not just ML inference. The game engine must be fast enough to run millions of parallel simulations for MCTS-based RL training.
 
+## Performance Baseline
+
+Phase A establishes the first reproducible benchmark baseline for the current heap-allocating engine, along with a pure-Python comparison engine and safety-focused validation harnesses.
+
+### Phase A Results
+
+These numbers were collected on the current `osx-arm64` development machine using the default benchmark settings:
+
+- `pixi run bench-throughput`
+- `pixi run bench-allocation`
+- `pixi run bench-python`
+
+Methodology:
+
+- Mojo throughput benchmark: 100 warmup games and 1000 measured games per repetition across 5 repetitions
+- Python throughput benchmark: 100 warmup games and 1000 measured games per repetition across 5 repetitions
+- Allocation benchmark: 1000 warmup insert/remove cycles and 100000 measured cycles across 5 repetitions
+- Stress and determinism checks: `pixi run test-stress` and `pixi run test-determinism`
+
+| Benchmark | Result |
+| --- | --- |
+| Mojo environment throughput | 800,829 steps/sec mean |
+| Python environment throughput | 162,248 steps/sec mean |
+| Mojo/Python speedup | 4.94x |
+| `insert_at` throughput | 4,429,096 ops/sec mean |
+| `remove_at` throughput | 4,570,418 ops/sec mean |
+| Mojo benchmark CV | 0.78% |
+| Python benchmark CV | 2.03% |
+| Allocation benchmark CV | 1.52% insert, 0.51% remove |
+
+### What Phase A Delivered
+
+- Safety guards for negative actions and merged-atom overflow paths
+- A 10,000-game stress test that caught and fixed a real `highest_atom` bookkeeping bug
+- A determinism replay test for seeded sequential trajectories
+- Mojo benchmark harnesses for throughput and ring-allocation microbenchmarks
+- A pure-Python engine port plus Python throughput benchmark
+- Cross-validation tooling and pre-generated random-sequence artifacts
+
+### Cross-Validation Status
+
+The Python baseline can replay a pre-generated random sequence exactly. Exact step-for-step parity between the Mojo engine and the Python engine is not yet supported because the current Mojo engine still consumes RNG internally and does not expose an injected random-stream interface. The `verify-cross` task therefore reports seeded corpus mismatches honestly instead of pretending exact parity exists.
+
 ## Game Mechanics (Reverse-Engineered from Atomas)
 
 ### Core Loop

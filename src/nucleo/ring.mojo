@@ -62,7 +62,8 @@ def recalculate_highest(mut state: GameState):
         state.highest_atom = EMPTY
         return
 
-    var highest = HYDROGEN
+    # When only specials remain on the ring there is no positive atom to track.
+    var highest = EMPTY
 
     for token in state.pieces:
         if token > highest:
