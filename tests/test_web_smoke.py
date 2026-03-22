@@ -8,14 +8,8 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from tests.helpers import first_legal_action
 from web.server import app
-
-
-def first_legal_action(mask: list[bool]) -> int:
-    for index, is_legal in enumerate(mask):
-        if is_legal:
-            return index
-    raise AssertionError("expected at least one legal action")
 
 
 def main() -> None:

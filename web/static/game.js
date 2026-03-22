@@ -168,14 +168,29 @@ function renderBoard() {
 }
 
 async function fetchState() {
-  const [stateResponse, legalResponse] = await Promise.all([
-    fetch("/api/state"),
-    fetch("/api/legal-actions"),
-  ]);
-  gameState = await stateResponse.json();
-  legalActions = (await legalResponse.json()).legal_actions;
-  updateStats();
-  renderBoard();
+  try {
+    const [stateResponse, legalResponse] = await Promise.all([
+      fetch("/api/state"),
+      fetch("/api/legal-actions"),
+    ]);
+
+    if (!stateResponse.ok || !legalResponse.ok) {
+      throw new Error(
+        `Failed to load state (${stateResponse.status}) or legal actions (${legalResponse.status})`
+      );
+    }
+
+    const statePayload = await stateResponse.json();
+    const legalPayload = await legalResponse.json();
+    gameState = statePayload;
+    legalActions = legalPayload.legal_actions;
+    updateStats();
+    renderBoard();
+  } catch (error) {
+    console.error("Failed to fetch game state", error);
+    setMessage(`Failed to load current state: ${error.message}`);
+    renderBoard();
+  }
 }
 
 async function resetGame() {
@@ -189,29 +204,40 @@ async function resetGame() {
 }
 
 async function playAction(action) {
-  const response = await fetch("/api/step", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ action }),
-  });
-  const payload = await response.json();
-  gameState = payload.state;
-  legalActions = payload.info.legal_actions;
-  updateStats();
+  try {
+    const response = await fetch("/api/step", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ action }),
+    });
 
-  if (gameState.is_terminal) {
-    setMessage(`Game over. Final score: ${gameState.score}.`);
-  } else if (gameState.holding_piece && gameState.held_can_convert) {
-    setMessage("You are holding an absorbed atom. Click a gap to place it or click the center to convert it into a Plus.");
-  } else if (isSelectMode()) {
-    setMessage("Select an atom on the ring.");
-  } else {
-    setMessage(`Reward: ${payload.reward}. Choose the next action.`);
+    const payload = await response.json();
+    if (!response.ok) {
+      const detail = payload?.detail ?? "request failed";
+      throw new Error(detail);
+    }
+
+    gameState = payload.state;
+    legalActions = payload.info.legal_actions;
+    updateStats();
+
+    if (gameState.is_terminal) {
+      setMessage(`Game over. Final score: ${gameState.score}.`);
+    } else if (gameState.holding_piece && gameState.held_can_convert) {
+      setMessage("You are holding an absorbed atom. Click a gap to place it or click the center to convert it into a Plus.");
+    } else if (isSelectMode()) {
+      setMessage("Select an atom on the ring.");
+    } else {
+      setMessage(`Reward: ${payload.reward}. Choose the next action.`);
+    }
+  } catch (error) {
+    console.error("Failed to apply action", error);
+    setMessage(`Failed to apply action: ${error.message}`);
+  } finally {
+    renderBoard();
   }
-
-  renderBoard();
 }
 
 function hitTest(actionTargets, x, y) {

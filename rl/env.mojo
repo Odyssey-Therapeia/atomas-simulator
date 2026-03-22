@@ -26,6 +26,9 @@ struct NucleoEnv(Movable, Writable):
     def step(mut self, action: Int) raises -> Tuple[
         InlineArray[Int8, OBSERVATION_SIZE], Int, Bool, Int
     ]:
+        if action < 0 or action >= MAX_ACTIONS:
+            raise Error("action index out of bounds for RL action space")
+
         var result = engine_step(self.state, action)
         return (
             get_canonical_observation(self.state),

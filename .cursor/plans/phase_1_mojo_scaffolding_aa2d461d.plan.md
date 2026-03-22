@@ -74,7 +74,7 @@ Standard ignores for Mojo/pixi: `.pixi/`, `*.mojopkg`, `__pycache__/`, `.env`, b
 
 The `GameState` struct contains:
 
-```
+```mojo
 comptime MAX_RING_SIZE = 18
 
 comptime PLUS: Int8 = -1

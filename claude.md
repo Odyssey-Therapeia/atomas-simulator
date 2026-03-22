@@ -129,7 +129,7 @@ rl/
 
 Even though we're building a faithful playable game first, the RL interface wraps the engine without changing game rules.
 
-- **Observation:** Padded token tensor with `MAX_OBSERVATION_TOKENS = 64`, plus hand/holding metadata
+- **Observation:** Padded observation tensor with `OBSERVATION_SIZE = 64`, made up of `TOKEN_SLOT_COUNT = 60` token slots plus 4 metadata entries for current piece and held-piece state
 - **Action space:** Dynamic in the engine, padded to `MAX_ACTIONS = 65` in the RL wrapper
 - **Action masking:** Critical — mask unused padded positions and illegal gap/select/convert actions
 - **Reward:** Linear element value of merged atom, NOT raw exponential score

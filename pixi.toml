@@ -2,13 +2,35 @@
 authors = ["Odyssey Therapeia"]
 channels = ["https://conda.modular.com/max", "conda-forge"]
 name = "nucleo"
+# TODO: Add linux-64 and osx-64 once cross-platform CI verifies the lockfile.
 platforms = ["osx-arm64"]
 version = "0.1.0"
 
 [tasks]
 build = "mojo build -I src src/main.mojo -o nucleo"
 run = "mojo run -I src src/main.mojo"
-test = "mojo run -I src tests/test_game_state.mojo && mojo run -I src tests/test_ring.mojo && mojo run -I src tests/test_scoring.mojo && mojo run -I src tests/test_fusion.mojo && mojo run -I src tests/test_spawn.mojo && mojo run -I src tests/test_actions.mojo && mojo run -I src tests/test_integration.mojo && mojo run -I src -I rl tests/test_rl_modules.mojo && python tests/test_web_smoke.py && python tests/test_rl_smoke.py"
+test-game-state = "mojo run -I src tests/test_game_state.mojo"
+test-ring = "mojo run -I src tests/test_ring.mojo"
+test-scoring = "mojo run -I src tests/test_scoring.mojo"
+test-fusion = "mojo run -I src tests/test_fusion.mojo"
+test-spawn = "mojo run -I src tests/test_spawn.mojo"
+test-actions = "mojo run -I src tests/test_actions.mojo"
+test-integration = "mojo run -I src tests/test_integration.mojo"
+test-rl-modules = "mojo run -I src -I rl tests/test_rl_modules.mojo"
+test-web-smoke = { cmd = ["bash", "-lc", "\".pixi/envs/default/bin/python\" \"tests/test_web_smoke.py\""] }
+test-rl-smoke = { cmd = ["bash", "-lc", "\".pixi/envs/default/bin/python\" \"tests/test_rl_smoke.py\""] }
+test = { depends-on = [
+    "test-game-state",
+    "test-ring",
+    "test-scoring",
+    "test-fusion",
+    "test-spawn",
+    "test-actions",
+    "test-integration",
+    "test-rl-modules",
+    "test-web-smoke",
+    "test-rl-smoke",
+] }
 format = "mojo format src/ tests/"
 serve = "python -m uvicorn web.server:app --reload --port 8080"
 

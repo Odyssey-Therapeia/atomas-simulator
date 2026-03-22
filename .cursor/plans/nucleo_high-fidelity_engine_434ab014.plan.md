@@ -197,7 +197,7 @@ Later, when ANY token placement changes the Plus's neighbors to matching atoms, 
 
 This is the **central game mechanic**. After ANY token is placed on the ring (from hand, from held piece, initial Plus/BlackPlus placement), execute:
 
-```
+```python
 def resolve_board(mut state, placement_idx) -> total_score:
     total_score = 0
     changed = True
@@ -253,7 +253,7 @@ Where `ccw_distance(from, to, size) = (from - to + size) % size` (0 means same p
 
 After a Plus resolves (simple merge), check the merged atom's neighbors for further chains:
 
-```
+```python
 def chain_react(mut state, center_idx, depth) -> score:
     if len(state.pieces) < 3: return 0
     left = left_neighbor(state, center_idx)
@@ -338,7 +338,7 @@ For the RL wrapper: project to `MAX_ACTIONS = 65` (indices 0-63 for positions, i
 
 Reorganize into a Mojo package under `src/nucleo/` so Python bindings can import sibling modules:
 
-```
+```text
 src/
   nucleo/
     __init__.mojo          # package init, re-exports key types
@@ -374,7 +374,7 @@ struct GameState(Writable):
 
 ### 5.3 File Tree (After All Phases)
 
-```
+```text
 nucleo/
   CLAUDE.md                          # updated
   pixi.toml                         # updated with Python deps
@@ -530,7 +530,7 @@ Update the following sections in [CLAUDE.md](CLAUDE.md) to match the new archite
 
 Use `PythonModuleBuilder` (beta) to expose GameState to Python:
 
-```
+```mojo
 @export
 fn PyInit_nucleo_engine() -> PythonObject:
     var m = PythonModuleBuilder("nucleo_engine")

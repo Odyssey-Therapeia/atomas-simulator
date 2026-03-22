@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -11,6 +11,9 @@ from web.bridge import NucleoGame
 
 
 app = FastAPI(title="Nucleo API")
+# This API currently keeps a single in-memory game instance for a single local
+# player session. Concurrent clients will share state until session management
+# is added.
 game = NucleoGame()
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -33,7 +36,26 @@ def reset_game() -> dict[str, object]:
 
 @app.post("/api/step")
 def step_game(request: StepRequest) -> dict[str, object]:
-    state, reward, done, info = game.step(request.action)
+    if request.action < 0:
+        raise HTTPException(status_code=400, detail="action must be non-negative")
+
+    legal_actions = game.legal_actions()
+    if request.action >= len(legal_actions):
+        raise HTTPException(
+            status_code=400,
+            detail=f"action {request.action} is out of range for the current state",
+        )
+    if not legal_actions[request.action]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"action {request.action} is illegal for the current state",
+        )
+
+    try:
+        state, reward, done, info = game.step(request.action)
+    except (ValueError, TypeError) as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
     return {
         "state": state,
         "reward": reward,

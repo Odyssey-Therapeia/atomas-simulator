@@ -607,7 +607,7 @@ Test file: `tests/test_actions.mojo` including full random game simulation.
 
 The fusion algorithm is the most complex part. Here is pseudocode:
 
-```
+```python
 def resolve_plus_fusion(state, plus_position):
     left = get_left_neighbor(state, plus_position)
     right = get_right_neighbor(state, plus_position)
@@ -675,7 +675,7 @@ def check_chain(state, center_pos, depth):
 
 ## File Tree After All Phases
 
-```
+```text
 nucleo/
 +-- CLAUDE.md
 +-- README.md

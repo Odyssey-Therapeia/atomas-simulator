@@ -29,6 +29,19 @@ except ImportError:
 
 
 def encode_observation(state: dict[str, Any]) -> np.ndarray:
+    """Encode engine state into the fixed-size LightZero observation tensor.
+
+    Args:
+        state: Normalized game state returned by the web bridge.
+
+    Returns:
+        A `np.ndarray` of shape `(OBSERVATION_SIZE,)` with token slots followed
+        by held-piece metadata.
+
+    Raises:
+        ValueError: If the token count exceeds the observation capacity or the
+            reported highest atom is not present in the piece list.
+    """
     observation = np.zeros(OBSERVATION_SIZE, dtype=np.int8)
     pieces = state["pieces"]
 
@@ -38,6 +51,11 @@ def encode_observation(state: dict[str, Any]) -> np.ndarray:
     start_index = 0
     if pieces:
         highest_atom = state["highest_atom"]
+        if highest_atom not in pieces:
+            raise ValueError(
+                "highest_atom is missing from pieces while encoding observation: "
+                f"highest_atom={highest_atom}, len(pieces)={len(pieces)}, state={state}"
+            )
         start_index = pieces.index(highest_atom)
 
     for offset, token in enumerate(pieces):
@@ -57,6 +75,17 @@ def encode_observation(state: dict[str, Any]) -> np.ndarray:
 
 
 def encode_action_mask(mask: list[bool]) -> np.ndarray:
+    """Pad a dynamic legal-action mask to the LightZero action size.
+
+    Args:
+        mask: Dynamic legal-action mask produced by the engine.
+
+    Returns:
+        A boolean `np.ndarray` of shape `(MAX_ACTIONS,)`.
+
+    Raises:
+        ValueError: If the mask exceeds the padded LightZero action capacity.
+    """
     if len(mask) > MAX_ACTIONS:
         raise ValueError("action mask exceeds RL action capacity")
 
@@ -66,7 +95,14 @@ def encode_action_mask(mask: list[bool]) -> np.ndarray:
 
 
 class NucleoLightZeroEnv(BaseEnv):
+    """LightZero-compatible wrapper around the Nucleo game engine."""
+
     def __init__(self, seed: int | None = None) -> None:
+        """Initialize the environment and its fixed observation/action spaces.
+
+        Args:
+            seed: Optional deterministic seed forwarded to the underlying game.
+        """
         self.seed = seed
         self.game = NucleoGame(seed=seed)
         self.action_space = gym.spaces.Discrete(MAX_ACTIONS)
@@ -78,6 +114,12 @@ class NucleoLightZeroEnv(BaseEnv):
         )
 
     def reset(self) -> dict[str, Any]:
+        """Reset the environment and return the initial LightZero observation.
+
+        Returns:
+            A dict containing the encoded observation, padded action mask, and
+            `to_play` marker expected by LightZero.
+        """
         state = self.game.reset()
         return {
             "observation": encode_observation(state),
@@ -86,6 +128,20 @@ class NucleoLightZeroEnv(BaseEnv):
         }
 
     def step(self, action: int) -> tuple[dict[str, Any], int, bool, dict[str, Any]] | BaseEnvTimestep:
+        """Apply one action and return the next LightZero timestep payload.
+
+        Args:
+            action: Padded action index to send to the underlying game engine.
+
+        Returns:
+            Either a tuple of `(observation, reward, done, info)` or a
+            `BaseEnvTimestep`, depending on the LightZero base class available
+            at runtime.
+
+        Raises:
+            ValueError: If observation or action-mask encoding detects invalid
+                backend state.
+        """
         state, reward, done, info = self.game.step(int(action))
         observation = {
             "observation": encode_observation(state),

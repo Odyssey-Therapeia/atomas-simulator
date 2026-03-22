@@ -5,6 +5,7 @@ import importlib
 import io
 import subprocess
 import sys
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -43,6 +44,7 @@ def load_engine_module():
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
+            importlib.invalidate_caches()
             return importlib.import_module(ENGINE_MODULE_NAME)
 
 
@@ -50,25 +52,77 @@ nucleo_engine = load_engine_module()
 
 
 def normalize_state(payload: dict[str, Any]) -> dict[str, Any]:
+    """Validate and normalize a raw engine state payload for JSON responses."""
+    required_keys = [
+        "pieces",
+        "atom_count",
+        "current_piece",
+        "score",
+        "move_count",
+        "highest_atom",
+        "holding_piece",
+        "held_piece",
+        "held_can_convert",
+        "is_terminal",
+        "moves_since_plus",
+        "moves_since_minus",
+        "rng_seed",
+    ]
+    missing_keys = [key for key in required_keys if key not in payload]
+    if missing_keys:
+        raise ValueError(
+            f"normalize_state missing required keys: {', '.join(missing_keys)}"
+        )
+
+    pieces_payload = payload["pieces"]
+    if isinstance(pieces_payload, (str, bytes)) or not isinstance(
+        pieces_payload, Iterable
+    ):
+        raise ValueError("normalize_state expected 'pieces' to be an iterable")
+
+    try:
+        pieces = [int(token) for token in pieces_payload]
+        atom_count = int(payload["atom_count"])
+        current_piece = int(payload["current_piece"])
+        score = int(payload["score"])
+        move_count = int(payload["move_count"])
+        highest_atom = int(payload["highest_atom"])
+        holding_piece = bool(payload["holding_piece"])
+        held_piece = int(payload["held_piece"])
+        held_can_convert = bool(payload["held_can_convert"])
+        is_terminal = bool(payload["is_terminal"])
+        moves_since_plus = int(payload["moves_since_plus"])
+        moves_since_minus = int(payload["moves_since_minus"])
+        rng_seed = int(payload["rng_seed"])
+    except (TypeError, ValueError) as error:
+        raise ValueError(f"normalize_state received invalid payload: {error}") from error
+
     return {
-        "pieces": [int(token) for token in payload["pieces"]],
-        "atom_count": int(payload["atom_count"]),
-        "current_piece": int(payload["current_piece"]),
-        "score": int(payload["score"]),
-        "move_count": int(payload["move_count"]),
-        "highest_atom": int(payload["highest_atom"]),
-        "holding_piece": bool(payload["holding_piece"]),
-        "held_piece": int(payload["held_piece"]),
-        "held_can_convert": bool(payload["held_can_convert"]),
-        "is_terminal": bool(payload["is_terminal"]),
-        "moves_since_plus": int(payload["moves_since_plus"]),
-        "moves_since_minus": int(payload["moves_since_minus"]),
-        "rng_seed": int(payload["rng_seed"]),
+        "pieces": pieces,
+        "atom_count": atom_count,
+        "current_piece": current_piece,
+        "score": score,
+        "move_count": move_count,
+        "highest_atom": highest_atom,
+        "holding_piece": holding_piece,
+        "held_piece": held_piece,
+        "held_can_convert": held_can_convert,
+        "is_terminal": is_terminal,
+        "moves_since_plus": moves_since_plus,
+        "moves_since_minus": moves_since_minus,
+        "rng_seed": rng_seed,
     }
 
 
 class NucleoGame:
+    """Thin Python wrapper around `nucleo_engine.Game` with normalized state."""
+
     def __init__(self, seed: int | None = None) -> None:
+        """Create a new game instance.
+
+        Args:
+            seed: Optional deterministic seed passed to `nucleo_engine.Game`.
+        """
         self._game = (
             nucleo_engine.Game(seed)
             if seed is not None
@@ -76,9 +130,15 @@ class NucleoGame:
         )
 
     def reset(self) -> dict[str, Any]:
+        """Reset the game and return the normalized state payload."""
         return normalize_state(dict(self._game.reset()))
 
     def step(self, action: int) -> tuple[dict[str, Any], int, bool, dict[str, Any]]:
+        """Apply one action and return `(state, reward, done, info)`.
+
+        The returned `info` dict includes `legal_actions`, `score`, and
+        `atom_count` for downstream callers.
+        """
         payload = dict(self._game.step(action))
         state = normalize_state(dict(payload["state"]))
         reward = int(payload["reward"])
@@ -91,7 +151,9 @@ class NucleoGame:
         return state, reward, done, info
 
     def legal_actions(self) -> list[bool]:
+        """Return the current legal-action mask as a Python `list[bool]`."""
         return [bool(item) for item in self._game.legal_actions()]
 
     def get_state(self) -> dict[str, Any]:
+        """Return the current normalized game state without mutating it."""
         return normalize_state(dict(self._game.get_state()))

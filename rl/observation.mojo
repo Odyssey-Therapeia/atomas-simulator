@@ -33,10 +33,15 @@ def get_canonical_observation(
 
     if len(state.pieces) > 0:
         var start_idx = 0
+        var found_highest = False
         for index in range(len(state.pieces)):
             if state.pieces[index] == state.highest_atom:
                 start_idx = index
+                found_highest = True
                 break
+
+        if not found_highest:
+            raise Error("highest atom missing from canonical observation")
 
         for offset in range(len(state.pieces)):
             observation[offset] = state.pieces[
