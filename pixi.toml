@@ -1,0 +1,15 @@
+[workspace]
+authors = ["Odyssey Therapeia"]
+channels = ["https://conda.modular.com/max", "conda-forge"]
+name = "nucleo"
+platforms = ["osx-arm64"]
+version = "0.1.0"
+
+[tasks]
+build = "mojo build -I src src/main.mojo -o nucleo"
+run = "mojo run -I src src/main.mojo"
+test = "mojo run -I src tests/test_game_state.mojo"
+format = "mojo format src/ tests/"
+
+[dependencies]
+mojo = ">=0.26.2,<0.27"

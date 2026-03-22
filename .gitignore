@@ -1,0 +1,7 @@
+.pixi/
+pixi.lock
+*.mojopkg
+__pycache__/
+.DS_Store
+.env
+nucleo
