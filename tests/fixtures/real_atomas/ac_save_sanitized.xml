@@ -1,0 +1,6 @@
+<achievements>
+  <achievement cID="score_sample" ul="1" p="1" ctgc="0"></achievement>
+  <achievement cID="hidden_sample" ul="0" p="0.75" ctgc="0"></achievement>
+  <counter n="highest_element" v="4"/>
+  <counter n="classic_points" v="75"/>
+</achievements>

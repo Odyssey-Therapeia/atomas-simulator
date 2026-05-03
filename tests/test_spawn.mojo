@@ -1,3 +1,4 @@
+from helpers import set_pieces
 from nucleo.game_state import BLACK_PLUS, GameState, HYDROGEN, NEUTRINO, PLUS
 from nucleo.spawn import spawn_initial_board, spawn_piece
 from std.testing import TestSuite, assert_equal, assert_false, assert_true
@@ -7,10 +8,11 @@ def test_spawn_initial_board_creates_six_atoms_in_range() raises:
     var game = GameState(game_seed=11)
     spawn_initial_board(game)
 
-    assert_equal(len(game.pieces), 6)
+    assert_equal(game.token_count, 6)
     assert_equal(game.atom_count, 6)
 
-    for token in game.pieces:
+    for index in range(game.token_count):
+        var token = game.pieces[index]
         assert_true(token >= 1 and token <= 3)
 
 
@@ -49,9 +51,7 @@ def test_neutrino_never_spawns_below_score_gate() raises:
 
 def test_pity_spawn_can_emit_straggler_value() raises:
     var game = GameState(game_seed=41)
-    game.pieces = [Int8(1), Int8(6)]
-    game.atom_count = 2
-    game.highest_atom = 6
+    set_pieces(game, [Int8(1), Int8(6)])
     var saw_straggler = False
 
     for _ in range(64):

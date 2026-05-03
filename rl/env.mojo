@@ -1,10 +1,14 @@
-from nucleo.actions import legal_actions as engine_legal_actions, step as engine_step
+from nucleo.actions import (
+    MAX_ACTION_SLOTS,
+    legal_actions as engine_legal_actions,
+    step as engine_step,
+)
 from nucleo.game_state import GameState
 
 from observation import OBSERVATION_SIZE, get_canonical_observation
 
 
-comptime MAX_ACTIONS: Int = 65
+comptime MAX_ACTIONS: Int = 37
 
 
 struct NucleoEnv(Movable, Writable):
@@ -39,13 +43,13 @@ struct NucleoEnv(Movable, Writable):
 
     def legal_actions(self) raises -> InlineArray[Bool, MAX_ACTIONS]:
         var padded = InlineArray[Bool, MAX_ACTIONS](fill=False)
-        var mask = engine_legal_actions(self.state)
+        var mask_result = engine_legal_actions(self.state)
 
-        if len(mask) > MAX_ACTIONS:
+        if mask_result[1] > MAX_ACTIONS:
             raise Error("action mask exceeds RL action capacity")
 
-        for index in range(len(mask)):
-            padded[index] = mask[index]
+        for index in range(mask_result[1]):
+            padded[index] = mask_result[0][index]
 
         return padded
 

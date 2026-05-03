@@ -4,6 +4,7 @@ from nucleo.game_state import (
     GameState,
     HYDROGEN,
     MAX_ATOMS,
+    MAX_RING_CAPACITY,
     MINUS,
     NEUTRINO,
     PLUS,
@@ -15,7 +16,7 @@ def test_reset_produces_seeded_opening_board() raises:
     var game = GameState(game_seed=1234)
     game.reset()
 
-    assert_equal(len(game.pieces), 6)
+    assert_equal(game.token_count, 6)
     assert_equal(game.atom_count, 6)
     assert_equal(game.score, 0)
     assert_equal(game.move_count, 0)
@@ -23,16 +24,19 @@ def test_reset_produces_seeded_opening_board() raises:
     assert_true(game.current_piece != EMPTY)
     assert_false(game.is_terminal)
 
-    for token in game.pieces:
+    for index in range(game.token_count):
+        var token = game.pieces[index]
         assert_true(token >= HYDROGEN and token <= 3)
+
+    assert_true(game.token_count <= MAX_RING_CAPACITY)
 
 
 def test_reset_with_same_seed_is_reproducible() raises:
     var game_one = GameState(game_seed=77)
     var game_two = GameState(game_seed=77)
 
-    assert_equal(len(game_one.pieces), len(game_two.pieces))
-    for index in range(len(game_one.pieces)):
+    assert_equal(game_one.token_count, game_two.token_count)
+    for index in range(game_one.token_count):
         assert_equal(game_one.pieces[index], game_two.pieces[index])
 
     assert_equal(game_one.current_piece, game_two.current_piece)
@@ -56,6 +60,7 @@ def test_reset_clears_transient_state() raises:
     assert_equal(game.score, 0)
     assert_equal(game.move_count, 0)
     assert_equal(game.atom_count, 6)
+    assert_equal(game.token_count, 6)
 
 
 def test_seed_argument_is_stored() raises:

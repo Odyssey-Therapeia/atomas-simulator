@@ -25,7 +25,8 @@ def black_plus_score(left: Int8, right: Int8) -> Int:
 def end_game_bonus(state: GameState) -> Int:
     var total = 0
 
-    for token in state.pieces:
+    for index in range(state.token_count):
+        var token = state.pieces[index]
         if token > 0:
             total += Int(token)
 

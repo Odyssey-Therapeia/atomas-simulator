@@ -1,3 +1,4 @@
+from helpers import set_pieces
 from env import MAX_ACTIONS, NucleoEnv
 from observation import (
     OBSERVATION_SIZE,
@@ -8,8 +9,13 @@ from observation import (
 from wrappers import linear_reward, normalized_reward, shaped_reward
 
 from nucleo.game_state import GameState
-from nucleo.ring import recalculate_atom_count, recalculate_highest
 from std.testing import TestSuite, assert_equal, assert_true
+
+
+def test_phase_b_rl_constants_match_engine_capacity() raises:
+    assert_equal(TOKEN_SLOT_COUNT, 36)
+    assert_equal(OBSERVATION_SIZE, 40)
+    assert_equal(MAX_ACTIONS, 37)
 
 
 def test_observation_includes_metadata_slots() raises:
@@ -24,9 +30,7 @@ def test_observation_includes_metadata_slots() raises:
 
 def test_canonical_observation_rotates_highest_atom_to_front() raises:
     var game = GameState()
-    game.pieces = [Int8(2), Int8(5), Int8(1)]
-    recalculate_atom_count(game)
-    recalculate_highest(game)
+    set_pieces(game, [Int8(2), Int8(5), Int8(1)])
     game.current_piece = 3
 
     var observation = get_canonical_observation(game)

@@ -1,3 +1,4 @@
+from helpers import set_pieces
 from nucleo.game_state import BLACK_PLUS, GameState, PLUS
 from nucleo.scoring import (
     black_plus_score,
@@ -28,7 +29,7 @@ def test_black_plus_score_uses_average_of_effective_values() raises:
 
 def test_end_game_bonus_ignores_non_atoms() raises:
     var game = GameState()
-    game.pieces = [Int8(3), PLUS, Int8(9), BLACK_PLUS]
+    set_pieces(game, [Int8(3), PLUS, Int8(9), BLACK_PLUS])
 
     assert_equal(end_game_bonus(game), 12)
 

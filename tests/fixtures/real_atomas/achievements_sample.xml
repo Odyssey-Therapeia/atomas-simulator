@@ -1,0 +1,15 @@
+<achievements>
+  <achievement id="score_sample" h="0" svb="0">
+    <title>Sample score</title>
+    <preInfo>Reach a sample score</preInfo>
+    <postInfo>Reached a sample score</postInfo>
+    <extern name="apple" id="score_sample"/>
+    <reward name="antimatter" value="1"/>
+    <counter name="classic_points" value="100"/>
+    <info name="challenge" value="1"/>
+  </achievement>
+  <achievement id="hidden_sample" h="1" svb="0">
+    <title>Hidden sample</title>
+    <counter name="highest_element" value="4"/>
+  </achievement>
+</achievements>

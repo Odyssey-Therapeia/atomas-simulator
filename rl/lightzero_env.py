@@ -1,17 +1,27 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, TypeAlias
+from typing import TypeAlias
 
 import gymnasium as gym
 import numpy as np
+import numpy.typing as npt
 
 from web.bridge import NucleoGame
 
 
-TOKEN_SLOT_COUNT = 60
-OBSERVATION_SIZE = 64
-MAX_ACTIONS = 65
+TOKEN_SLOT_COUNT = 36
+OBSERVATION_SIZE = 40
+MAX_ACTIONS = 37
+
+Int8Array: TypeAlias = npt.NDArray[np.int8]
+BoolArray: TypeAlias = npt.NDArray[np.bool_]
+StateValue: TypeAlias = list[int] | int | bool
+StateDict: TypeAlias = dict[str, StateValue]
+ObservationValue: TypeAlias = Int8Array | BoolArray | int
+ObservationDict: TypeAlias = dict[str, ObservationValue]
+InfoValue: TypeAlias = list[bool] | int | StateDict
+InfoDict: TypeAlias = dict[str, InfoValue]
 
 
 try:
@@ -26,18 +36,39 @@ except ImportError:
 
     @dataclass
     class BaseEnvTimestep:  # type: ignore[no-redef]
-        obs: dict[str, Any]
+        obs: ObservationDict
         reward: float
         done: bool
-        info: dict[str, Any]
+        info: InfoDict
 
 
-ObservationDict: TypeAlias = dict[str, Any]
-StepTuple: TypeAlias = tuple[ObservationDict, int, bool, dict[str, Any]]
+StepTuple: TypeAlias = tuple[ObservationDict, int, bool, InfoDict]
 StepResult: TypeAlias = BaseEnvTimestep | StepTuple
 
 
-def encode_observation(state: dict[str, Any]) -> np.ndarray:
+def assert_rl_contract(observation: Int8Array, action_mask: BoolArray) -> None:
+    """Assert the fixed LightZero observation and action-mask contract."""
+    assert observation.ndim == 1, (
+        f"expected observation ndim=1, got {observation.ndim}"
+    )
+    assert observation.shape == (OBSERVATION_SIZE,), (
+        f"expected observation shape {(OBSERVATION_SIZE,)}, got {observation.shape}"
+    )
+    assert observation.dtype == np.int8, (
+        f"expected observation dtype {np.int8}, got {observation.dtype}"
+    )
+    assert action_mask.ndim == 1, (
+        f"expected action mask ndim=1, got {action_mask.ndim}"
+    )
+    assert action_mask.shape == (MAX_ACTIONS,), (
+        f"expected action mask shape {(MAX_ACTIONS,)}, got {action_mask.shape}"
+    )
+    assert action_mask.dtype == np.bool_, (
+        f"expected action mask dtype {np.bool_}, got {action_mask.dtype}"
+    )
+
+
+def encode_observation(state: StateDict) -> Int8Array:
     """Encode engine state into the fixed-size LightZero observation tensor.
 
     Args:
@@ -83,7 +114,7 @@ def encode_observation(state: dict[str, Any]) -> np.ndarray:
     return observation
 
 
-def encode_action_mask(mask: list[bool]) -> np.ndarray:
+def encode_action_mask(mask: list[bool]) -> BoolArray:
     """Pad a dynamic legal-action mask to the LightZero action size.
 
     Args:
@@ -96,7 +127,10 @@ def encode_action_mask(mask: list[bool]) -> np.ndarray:
         ValueError: If the mask exceeds the padded LightZero action capacity.
     """
     if len(mask) > MAX_ACTIONS:
-        raise ValueError("action mask exceeds RL action capacity")
+        raise ValueError(
+            "action mask exceeds RL action capacity: "
+            f"len(mask)={len(mask)}, MAX_ACTIONS={MAX_ACTIONS}"
+        )
 
     padded = np.zeros(MAX_ACTIONS, dtype=bool)
     padded[: len(mask)] = np.array(mask, dtype=bool)
@@ -122,7 +156,7 @@ class NucleoLightZeroEnv(BaseEnv):
             dtype=np.int8,
         )
 
-    def reset(self) -> dict[str, Any]:
+    def reset(self) -> ObservationDict:
         """Reset the environment and return the initial LightZero observation.
 
         Returns:
@@ -130,9 +164,12 @@ class NucleoLightZeroEnv(BaseEnv):
             `to_play` marker expected by LightZero.
         """
         state = self.game.reset()
+        observation = encode_observation(state)
+        action_mask = encode_action_mask(self.game.legal_actions())
+        assert_rl_contract(observation, action_mask)
         return {
-            "observation": encode_observation(state),
-            "action_mask": encode_action_mask(self.game.legal_actions()),
+            "observation": observation,
+            "action_mask": action_mask,
             "to_play": -1,
         }
 
@@ -151,9 +188,12 @@ class NucleoLightZeroEnv(BaseEnv):
                 backend state.
         """
         state, reward, done, info = self.game.step(int(action))
+        encoded_observation = encode_observation(state)
+        action_mask = encode_action_mask(self.game.legal_actions())
+        assert_rl_contract(encoded_observation, action_mask)
         observation: ObservationDict = {
-            "observation": encode_observation(state),
-            "action_mask": encode_action_mask(self.game.legal_actions()),
+            "observation": encoded_observation,
+            "action_mask": action_mask,
             "to_play": -1,
         }
         info = {**info, "state": state}

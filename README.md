@@ -14,6 +14,53 @@ The project serves three purposes:
 
 Mojo gives us Python-like readability with C++-level performance, and compiles to NVIDIA, AMD, and Apple Silicon GPUs from a single codebase. This project demonstrates that Mojo is viable for game simulation and RL environment development — not just ML inference. The game engine must be fast enough to run millions of parallel simulations for MCTS-based RL training.
 
+## Performance Baseline
+
+Phase B replaces the heap-backed token ring with a stack-allocated `InlineArray[Int8, 36]` plus `token_count`, removes the remaining hot-path allocations in `legal_actions()` and pity-spawn selection, and tightens the RL wrapper to a `36/40/37` observation-action contract.
+
+### Phase B Results
+
+These numbers were collected on the current `osx-arm64` development machine using the default benchmark settings:
+
+- `pixi run bench-throughput`
+- `pixi run bench-allocation`
+- `pixi run bench-fork`
+- `pixi run bench-python`
+
+Methodology:
+
+- Mojo throughput benchmark: 100 warmup games and 1000 measured games per repetition across 5 repetitions
+- Python throughput benchmark: 100 warmup games and 1000 measured games per repetition across 5 repetitions
+- Allocation benchmark: 1000 warmup insert/remove cycles and 100000 measured cycles across 5 repetitions
+- Fork benchmark: 10 warmup game steps, then 1000000 `GameState` copies
+- Stress and determinism checks: `pixi run test-stress` and `pixi run test-determinism`
+
+| Benchmark | Result |
+| --- | --- |
+| Mojo environment throughput | 1,523,217 steps/sec mean |
+| Python environment throughput | 174,701 steps/sec mean |
+| Mojo/Python speedup | 8.72x |
+| `insert_at` throughput | 173,461,449 ops/sec mean |
+| `remove_at` throughput | 23,892,317 ops/sec mean |
+| `GameState` fork cost | 0.563 ns per copy |
+| Mojo benchmark CV | 1.23% |
+| Python benchmark CV | 0.23% |
+| Allocation benchmark CV | 11.56% insert, 2.03% remove |
+
+### What Phase B Delivered
+
+- A stack-allocated `InlineArray[Int8, 36]` ring with explicit `token_count` tracking
+- Zero-allocation in-place `insert_at()` / `remove_at()` ring mutation
+- Zero-allocation `legal_actions()` via fixed-capacity action masks
+- Zero-allocation pity-spawn selection in `pick_straggler_spawn()`
+- Tighter RL tensors and masks: `TOKEN_SLOT_COUNT=36`, `OBSERVATION_SIZE=40`, `MAX_ACTIONS=37`
+- A `GameState` fork benchmark to measure value-semantic copy cost
+- Full regression coverage preserved across `pixi run test`, `pixi run test-stress`, and `pixi run test-determinism`
+
+### Cross-Validation Status
+
+The Python baseline can replay a pre-generated random sequence exactly, and it now mirrors the Phase B `token_count` semantics used by the Mojo engine. Exact step-for-step parity between the Mojo engine and the Python engine is still not supported because the current Mojo engine consumes RNG internally and does not expose an injected random-stream interface. The `verify-cross` task therefore reports seeded corpus mismatches honestly instead of pretending exact parity exists.
+
 ## Game Mechanics (Reverse-Engineered from Atomas)
 
 ### Core Loop
@@ -74,7 +121,7 @@ src/
 ```
 
 Key design decisions:
-- The ring is a **fixed-size array of 18 Int8 values** (not a dynamic list)
+- The engine stores the ring in a **stack-allocated `InlineArray[Int8, 36]` plus `token_count`**; the gameplay atom cap remains 18
 - The ring should be canonicalized before feeding to a neural network: **rotate so the highest-value element is at index 0** (reduces effective state space by ~18x)
 - `step(action) -> (observation, reward, done, info)` pattern from day one, even before RL integration
 - All functions should be `fn` (typed, compiled) not `def` (dynamic) for performance
