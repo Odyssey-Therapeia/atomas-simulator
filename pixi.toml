@@ -21,6 +21,7 @@ test-determinism = "mojo run -I src tests/test_determinism.mojo"
 test-rl-modules = "mojo run -I src -I rl tests/test_rl_modules.mojo"
 test-web-smoke = { cmd = ["bash", "-lc", "\".pixi/envs/default/bin/python\" \"tests/test_web_smoke.py\""] }
 test-rl-smoke = { cmd = ["bash", "-lc", "\".pixi/envs/default/bin/python\" \"tests/test_rl_smoke.py\""] }
+test-real-atomas = { cmd = ["bash", "-lc", "\".pixi/envs/default/bin/python\" \"tests/test_real_atomas_parsers.py\""] }
 bench-throughput = "mojo run -I src -I bench bench/bench_throughput.mojo"
 bench-allocation = "mojo run -I src -I bench bench/bench_allocation.mojo"
 bench-fork = "mojo run -I src -I bench bench/bench_fork.mojo"
@@ -38,6 +39,7 @@ test = { depends-on = [
     "test-rl-modules",
     "test-web-smoke",
     "test-rl-smoke",
+    "test-real-atomas",
 ] }
 test-all = { depends-on = [
     "test",
